@@ -28,6 +28,21 @@
   // Get methodology from settings
   let methodology = $derived(settingsStore.settings.methodology || "agile");
 
+  /**
+   * Story points as a number.
+   *
+   * The task form stores `points` as a STRING, so `sum + pts(t)`
+   * concatenates instead of adding - that is what turned Total Points into
+   * "0885553138211313". Every arithmetic use of points must go through here.
+   *
+   * @param {any} task
+   * @returns {number}
+   */
+  function pts(task: any): number {
+    const n = parseInt(task?.points, 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   // Register Chart.js components
   Chart.register(...registerables);
 
@@ -143,10 +158,10 @@
     const tasks = filteredTasks();
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter((t) => t.status === "DONE").length;
-    const totalPoints = tasks.reduce((sum, t) => sum + (t.points || 0), 0);
+    const totalPoints = tasks.reduce((sum, t) => sum + pts(t), 0);
     const completedPoints = tasks
       .filter((t) => t.status === "DONE")
-      .reduce((sum, t) => sum + (t.points || 0), 0);
+      .reduce((sum, t) => sum + pts(t), 0);
     const avgVelocity = completedSprints.length > 0
       ? Math.round(completedPoints / completedSprints.length)
       : 0;
@@ -195,7 +210,7 @@
     // Work in Progress (WIP): tasks not in BACKLOG or DONE
     const wipTasks = tasks.filter((t) => t.status !== "BACKLOG" && t.status !== "DONE");
     const wipCount = wipTasks.length;
-    const wipPoints = wipTasks.reduce((sum, t) => sum + (t.points || 0), 0);
+    const wipPoints = wipTasks.reduce((sum, t) => sum + pts(t), 0);
 
     // Blocked tasks
     const blockedTasks = tasks.filter((t) => t.blocked);
@@ -224,8 +239,8 @@
     let sprintCommitment = { planned: 0, delivered: 0, rate: 0 };
     if (activeSprint) {
       const sprintTasks = allTasks.filter((t) => t.sprintId === activeSprint.id);
-      sprintCommitment.planned = sprintTasks.reduce((sum, t) => sum + (t.points || 0), 0);
-      sprintCommitment.delivered = sprintTasks.filter((t) => t.status === "DONE").reduce((sum, t) => sum + (t.points || 0), 0);
+      sprintCommitment.planned = sprintTasks.reduce((sum, t) => sum + pts(t), 0);
+      sprintCommitment.delivered = sprintTasks.filter((t) => t.status === "DONE").reduce((sum, t) => sum + pts(t), 0);
       sprintCommitment.rate = sprintCommitment.planned > 0 ? Math.round((sprintCommitment.delivered / sprintCommitment.planned) * 100) : 0;
     }
 
@@ -311,7 +326,7 @@
           movedToBacklog: change.to === null,
           movedOn: change.timestamp,
           status: task.status || "BACKLOG",
-          points: task.points || 0,
+          points: pts(task),
         });
       });
     });
@@ -365,7 +380,7 @@
         const completedKey = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, "0")}`;
         if (monthlyStats[completedKey]) {
           monthlyStats[completedKey].completed++;
-          monthlyStats[completedKey].points += task.points || 0;
+          monthlyStats[completedKey].points += pts(task);
         }
       }
     });
@@ -420,7 +435,7 @@
         teamStats[assignee] = { tasks: 0, points: 0, completed: 0, completedPoints: 0, timeSpent: 0, bugs: 0, stories: 0, chores: 0 };
       }
       teamStats[assignee].tasks++;
-      teamStats[assignee].points += task.points || 0;
+      teamStats[assignee].points += pts(task);
       teamStats[assignee].timeSpent += task.elapsedSeconds || 0;
 
       // Track task types
@@ -431,7 +446,7 @@
 
       if (task.status === "DONE") {
         teamStats[assignee].completed++;
-        teamStats[assignee].completedPoints += task.points || 0;
+        teamStats[assignee].completedPoints += pts(task);
       }
     });
 
@@ -479,7 +494,7 @@
         teamStats[assignee] = { tasks: 0, completed: 0, points: 0, completedPoints: 0, timeSpent: 0, bugs: 0, stories: 0, chores: 0 };
       }
       teamStats[assignee].tasks++;
-      teamStats[assignee].points += task.points || 0;
+      teamStats[assignee].points += pts(task);
       teamStats[assignee].timeSpent += task.elapsedSeconds || 0;
 
       const taskType = task.type || "story";
@@ -489,7 +504,7 @@
 
       if (task.status === "DONE") {
         teamStats[assignee].completed++;
-        teamStats[assignee].completedPoints += task.points || 0;
+        teamStats[assignee].completedPoints += pts(task);
       }
     });
 
@@ -523,8 +538,8 @@
       const sprintTasks = allTasks.filter((t) => t.sprintId === sprint.id);
       const completed = sprintTasks
         .filter((t) => t.status === "DONE")
-        .reduce((sum, t) => sum + (t.points || 0), 0);
-      const planned = sprintTasks.reduce((sum, t) => sum + (t.points || 0), 0);
+        .reduce((sum, t) => sum + pts(t), 0);
+      const planned = sprintTasks.reduce((sum, t) => sum + pts(t), 0);
       completedPoints.push(completed);
       plannedPoints.push(planned);
     });
@@ -545,7 +560,7 @@
 
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const sprintTasks = allTasks.filter((t) => t.sprintId === sprint.id);
-    const totalPoints = sprintTasks.reduce((sum, t) => sum + (t.points || 0), 0);
+    const totalPoints = sprintTasks.reduce((sum, t) => sum + pts(t), 0);
 
     const labels: string[] = [];
     const ideal: number[] = [];
@@ -562,7 +577,7 @@
       if (currentDate <= today) {
         const remainingPoints = sprintTasks
           .filter((t) => t.status !== "DONE")
-          .reduce((sum, t) => sum + (t.points || 0), 0);
+          .reduce((sum, t) => sum + pts(t), 0);
         actual.push(remainingPoints);
       } else {
         actual.push(null);
@@ -1060,7 +1075,7 @@
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {task.status === 'DONE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted text-muted-foreground'}">
                     {task.status}
                   </span>
-                  {#if task.points > 0}
+                  {#if pts(task) > 0}
                     <p class="text-xs text-muted-foreground mt-1">{task.points} {$_("reports.points")}</p>
                   {/if}
                 </div>

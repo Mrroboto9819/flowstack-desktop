@@ -225,7 +225,13 @@
     "unassigned": "Unassigned",
     "backlog": "Backlog",
     "addToSprint": "Add to sprint",
-    "removeFromSprint": "Remove from sprint"
+    "removeFromSprint": "Remove from sprint",
+    "tools": "Tools",
+    "copySummaryHint": "Copy the filtered board as text",
+    "exportTasks": "Export tasks",
+    "exportTasksHint": "Save filtered tasks as JSON",
+    "importTasks": "Import tasks",
+    "importTasksHint": "Merge tasks from a JSON file"
   },
   "sprint": {
     "title": "Sprint Board",

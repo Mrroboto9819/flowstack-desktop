@@ -17,12 +17,17 @@
     AlertTriangle,
     Eye,
     ListTodo,
+    Download,
+    Upload,
+    ChevronDown,
+    SlidersHorizontal,
   } from "lucide-svelte";
   import { taskStore, userStore, statusStore, settingsStore, sprintStore } from "../../lib/stores/index.js";
   import TaskModal from "../../lib/components/TaskModal.svelte";
   import TaskDetailModal from "../../lib/components/TaskDetailModal.svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
   import TaskTimer from "../../lib/components/TaskTimer.svelte";
+  import ToolsMenu from "../../lib/components/ToolsMenu.svelte";
   import Select from "../../lib/Select.svelte";
   import DatePicker from "../../lib/components/DatePicker.svelte";
   import { dndzone } from "svelte-dnd-action";
@@ -31,6 +36,7 @@
   import { toastStore } from "../../lib/toastStore.svelte.js";
   import { _ } from "$lib/i18n";
   import { formatBoardSummaryForClipboard, copyToClipboard } from "../../lib/utils/clipboard.js";
+  import { exportTasksToFile, importTasksWithDialog } from "../../lib/utils/taskTransfer.js";
 
   let allTasks = $derived(taskStore.tasks);
   let users = $derived(userStore.users);
@@ -201,6 +207,58 @@
     }
   }
 
+  // Export the current filter selection, so "export" matches what is on screen
+  async function exportTasks() {
+    await exportTasksToFile(filteredTasks);
+  }
+
+  async function importTasks() {
+    await importTasksWithDialog();
+  }
+
+  let toolItems = $derived([
+    {
+      label: $_("tasks.copySummary"),
+      description: $_("tasks.copySummaryHint"),
+      icon: Clipboard,
+      onSelect: copyTagsSummary,
+    },
+    {
+      label: $_("tasks.exportTasks"),
+      description: $_("tasks.exportTasksHint"),
+      icon: Download,
+      onSelect: exportTasks,
+      separatorBefore: true,
+    },
+    {
+      label: $_("tasks.importTasks"),
+      description: $_("tasks.importTasksHint"),
+      icon: Upload,
+      onSelect: importTasks,
+    },
+  ]);
+
+  // Filters start collapsed so the board owns the screen; the badge keeps any
+  // active filter visible while hidden
+  let filtersOpen = $state(false);
+
+  let activeFilterCount = $derived(
+    [
+      filterStatus !== "all",
+      filterSprint !== "all",
+      filterTag.trim() !== "",
+      filterFrom !== "",
+      filterTo !== "",
+    ].filter(Boolean).length,
+  );
+
+  // Which task cards have their subtask list expanded, keyed by task id
+  let expandedSubtasks = $state({});
+
+  function toggleSubtaskPanel(taskId) {
+    expandedSubtasks = { ...expandedSubtasks, [taskId]: !expandedSubtasks[taskId] };
+  }
+
   // Drag and drop handlers
   function handleTaskDndConsider(status, e) {
     const { items: newItems } = e.detail;
@@ -227,57 +285,77 @@
   });
 </script>
 
-<main class="min-h-screen px-6 pt-6 pb-10">
-  <!-- Header with Title & Description -->
-  <header class="mb-6">
-    <div class="flex items-center gap-3">
-      <div class="rounded-xl bg-primary/10 border border-primary/30 p-2.5">
-        <Clipboard size={24} class="text-primary" />
+<!-- Fixed-height board.
+     The app shell scrolls vertically, which used to push the board's horizontal
+     scrollbar below the fold - you had to scroll DOWN to then scroll SIDEWAYS.
+     Here the page never scrolls: the header and filters are fixed, the board
+     fills the remaining height, and scrolling happens inside it. 40px is the
+     custom titlebar. -->
+<main
+  class="flex flex-col overflow-hidden px-4 pt-6 sm:px-6"
+  style="height: calc(100vh - 40px);"
+>
+  <!-- Page header: title, counts and primary actions, separated by a rule
+       rather than wrapped in a card -->
+  <header class="mb-5 shrink-0 border-b border-border pb-4">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold text-foreground sm:text-3xl">{$_("tasks.title")}</h1>
+        <p class="mt-1 text-sm text-muted-foreground">{$_("tasks.description")}</p>
       </div>
-      <div>
-        <h1 class="text-3xl font-bold text-foreground">{$_("tasks.title")}</h1>
-        <p class="text-muted-foreground mt-1">{$_("tasks.description")}</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <ToolsMenu label={$_("tasks.tools")} items={toolItems} />
+        <button
+          type="button"
+          class="btn btn-primary"
+          onclick={openTaskModal}
+        >
+          <Plus size={16} />
+          {$_("tasks.newTask")}
+        </button>
       </div>
     </div>
+
+    <!-- Counts read as a line of text instead of three boxes -->
+    <dl class="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+      <div class="flex items-baseline gap-1.5">
+        <dd class="font-semibold text-foreground">{allTasks.length}</dd>
+        <dt class="text-muted-foreground">{$_("tasks.totalTasks")}</dt>
+      </div>
+      <div class="flex items-baseline gap-1.5">
+        <dd class="font-semibold text-foreground">{filteredTasks.length}</dd>
+        <dt class="text-muted-foreground">{$_("tasks.filteredTasks")}</dt>
+      </div>
+      <div class="flex items-baseline gap-1.5">
+        <dd class="font-semibold text-foreground">{users.length}</dd>
+        <dt class="text-muted-foreground">{$_("tasks.totalUsers")}</dt>
+      </div>
+    </dl>
   </header>
 
-  <div class="space-y-6">
-    <!-- Filters & Stats Card -->
-    <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
-        <div>
-          <h2 class="text-lg font-semibold text-foreground">{$_("tasks.filtersStats")}</h2>
-          <p class="text-sm text-muted-foreground">{$_("tasks.filtersDescription")}</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick={clearFilters}
-          >
-            {$_("tasks.clearFilters")}
-          </button>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick={copyTagsSummary}
-          >
-            <Clipboard size={14} />
-            {$_("tasks.copySummary")}
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary shadow-sm"
-            onclick={openTaskModal}
-          >
-            <Plus size={16} />
-            {$_("tasks.newTask")}
-          </button>
-        </div>
-      </div>
+  <!-- Filters collapse so the board gets the whole surface -->
+  <section class="mb-4 shrink-0" aria-label={$_("tasks.filtersStats")}>
+    <button
+      type="button"
+      class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+      onclick={() => (filtersOpen = !filtersOpen)}
+      aria-expanded={filtersOpen}
+    >
+      <SlidersHorizontal size={13} />
+      {$_("tasks.filtersStats")}
+      {#if activeFilterCount > 0}
+        <span class="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+          {activeFilterCount}
+        </span>
+      {/if}
+      <ChevronDown
+        size={14}
+        class="transition-transform duration-200 {filtersOpen ? 'rotate-180' : ''}"
+      />
+    </button>
 
-      <!-- Filters -->
-      <div class="grid gap-3 mb-6 {methodology === 'agile' ? 'md:grid-cols-5' : 'md:grid-cols-4'}">
+    {#if filtersOpen}
+      <div class="grid gap-3 sm:grid-cols-2 {methodology === 'agile' ? 'xl:grid-cols-6' : 'xl:grid-cols-5'}">
         <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {$_("tasks.filterStatus")}
           <div class="mt-2">
@@ -326,90 +404,74 @@
             />
           </div>
         </label>
-      </div>
 
-      <!-- Stats -->
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div class="rounded-xl border border-border bg-background px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-muted-foreground">
-            {$_("tasks.totalTasks")}
-          </p>
-          <p class="mt-2 text-2xl font-bold text-foreground">
-            {allTasks.length}
-          </p>
+        <!-- Sits in the grid so it lines up with the inputs on every breakpoint -->
+        <div class="flex items-end">
+          <button
+            type="button"
+            class="btn btn-secondary w-full"
+            onclick={clearFilters}
+          >
+            {$_("tasks.clearFilters")}
+          </button>
         </div>
-        <div class="rounded-xl border border-border bg-background px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-muted-foreground">
-            {$_("tasks.filteredTasks")}
-          </p>
-          <p class="mt-2 text-2xl font-bold text-foreground">
-            {filteredTasks.length}
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-background px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-muted-foreground">
-            {$_("tasks.totalUsers")}
-          </p>
-          <p class="mt-2 text-2xl font-bold text-foreground">
-            {users.length}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- No results warning -->
-    {#if allTasks.length > 0 && filteredTasks.length === 0}
-      <div class="rounded-2xl border border-primary/30 bg-primary/10 px-5 py-4 text-sm text-primary">
-        {$_("tasks.noMatchFilters")}
       </div>
     {/if}
+  </section>
 
-    <!-- Kanban Board -->
-    <div class="w-full overflow-x-auto pb-2 scroll-smooth">
-      <div class="flex gap-4 min-w-max pb-4">
-        {#each visibleStatuses as statusItem (statusItem.id)}
+  <!-- No results warning -->
+  {#if allTasks.length > 0 && filteredTasks.length === 0}
+    <p class="mb-3 shrink-0 border-l-2 border-primary py-2 pl-4 text-sm text-primary">
+      {$_("tasks.noMatchFilters")}
+    </p>
+  {/if}
+
+  <!-- Kanban Board: fills the remaining height. The horizontal scrollbar sits
+       at the bottom of the visible board, so it is always reachable without
+       scrolling the page first. min-h-0 is required for flex-1 to be allowed
+       to shrink below its content height. -->
+  <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden pb-3">
+    <div class="flex h-full gap-4">
+      {#each visibleStatuses as statusItem (statusItem.id)}
+        <!-- Columns share the width when they fit, and only start scrolling
+             sideways once they cannot - so all sections stay visible. -->
+        <div
+          class="flex h-full min-w-[264px] flex-1 flex-col"
+          role="list"
+        >
+          <!-- Column header stays put while the column's tasks scroll under it -->
+          <div class="mb-3 flex shrink-0 items-center gap-2 border-b border-border pb-2.5">
+            <span
+              class="h-2 w-2 shrink-0 rounded-full"
+              style={`background-color: ${statusItem.color}`}
+            ></span>
+            <h3 class="truncate text-xs font-semibold uppercase tracking-wider text-foreground">
+              {statusItem.status}
+            </h3>
+            <span class="ml-auto shrink-0 text-xs font-semibold text-muted-foreground">
+              {getTasksForStatus(statusItem.status).length}
+            </span>
+          </div>
+
+          <!-- Each column scrolls its own tasks, so a long column never pushes
+               the board or the other columns out of view -->
           <div
-            class="flex w-[320px] flex-none flex-col rounded-2xl border border-border bg-card p-4 shadow-sm transition-all"
-            style="min-height: calc(100vh - 400px);"
-            role="list"
+            class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1"
+            use:dndzone={{
+              items: getTasksForStatusDnd(statusItem.status),
+              flipDurationMs,
+              type: "task",
+            }}
+            onconsider={(e) => handleTaskDndConsider(statusItem.status, e)}
+            onfinalize={(e) => handleTaskDndFinalize(statusItem.status, e)}
           >
-              <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="h-2.5 w-2.5 rounded-full"
-                    style={`background-color: ${statusItem.color}`}
-                  ></span>
-                  <h3 class="text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-                    {statusItem.status}
-                  </h3>
-                </div>
-                <div class="flex items-center gap-3">
-                  <p class="text-[11px] text-muted-foreground">
-                    {$_("tasks.updated")} {statusItem.updated.slice(0, 10)}
-                  </p>
-                  <span class="rounded-full bg-background px-2 py-1 text-xs font-semibold text-muted-foreground">
-                    {getTasksForStatus(statusItem.status).length}
-                  </span>
-                </div>
-              </div>
-
-              <div
-                class="flex flex-1 flex-col gap-6"
-                use:dndzone={{
-                  items: getTasksForStatusDnd(statusItem.status),
-                  flipDurationMs,
-                  type: "task",
-                }}
-                onconsider={(e) => handleTaskDndConsider(statusItem.status, e)}
-                onfinalize={(e) => handleTaskDndFinalize(statusItem.status, e)}
-              >
                 {#each getTasksForStatusDnd(statusItem.status) as task (task.id)}
                   {@const priorityColor = getPriorityColor(task.priority || "medium")}
                   <article
                     animate:flip={{ duration: flipDurationMs }}
-                    class={`group relative flex flex-col rounded-[20px] bg-background border p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] cursor-grab ${
+                    class={`group relative flex cursor-grab flex-col rounded-xl border bg-card p-4 transition-colors duration-200 active:scale-[0.99] ${
                       task.blocked
-                        ? "border-rose-500/30 bg-rose-500/5"
+                        ? "border-rose-500/40 bg-rose-500/5"
                         : "border-border hover:border-primary"
                     }`}
                   >
@@ -487,23 +549,68 @@
                       </div>
                     {/if}
 
-                    <!-- Subtasks Progress -->
+                    <!-- Subtasks: progress summary that expands into a tickable list -->
                     {#if task.subtasks && Array.isArray(task.subtasks) && task.subtasks.length > 0}
                       {@const completedSubtasks = task.subtasks.filter(st => st.completed).length}
                       {@const totalSubtasks = task.subtasks.length}
+                      {@const expanded = expandedSubtasks[task.id] === true}
                       <div class="mb-3">
-                        <div class="flex items-center gap-2 mb-1">
-                          <ListTodo size={10} class="text-muted-foreground" />
+                        <button
+                          type="button"
+                          class="mb-1 flex w-full items-center gap-2 text-left"
+                          onclick={() => toggleSubtaskPanel(task.id)}
+                          aria-expanded={expanded}
+                        >
+                          <ListTodo size={10} class="shrink-0 text-muted-foreground" />
                           <span class="text-[10px] font-medium text-muted-foreground">
                             {completedSubtasks}/{totalSubtasks} {$_("tasks.subtasks")}
                           </span>
-                        </div>
+                          <ChevronDown
+                            size={12}
+                            class="ml-auto shrink-0 text-muted-foreground transition-transform duration-200 {expanded ? 'rotate-180' : ''}"
+                          />
+                        </button>
                         <div class="h-1 bg-muted rounded-full overflow-hidden">
                           <div
                             class="h-full bg-primary transition-all duration-300"
                             style={`width: ${totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0}%`}
                           ></div>
                         </div>
+
+                        {#if expanded}
+                          <ul class="mt-2 flex flex-col gap-1.5">
+                            {#each task.subtasks as subtask (subtask.id)}
+                              <li>
+                                <button
+                                  type="button"
+                                  class="flex w-full items-start gap-2 text-left"
+                                  onclick={() => taskStore.toggleSubtask(task.id, subtask.id)}
+                                >
+                                  <span
+                                    class={`mt-[1px] flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors ${
+                                      subtask.completed
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-border hover:border-primary"
+                                    }`}
+                                  >
+                                    {#if subtask.completed}
+                                      <CheckCircle size={10} />
+                                    {/if}
+                                  </span>
+                                  <span
+                                    class={`text-[11px] leading-snug ${
+                                      subtask.completed
+                                        ? "text-muted-foreground line-through"
+                                        : "text-foreground"
+                                    }`}
+                                  >
+                                    {subtask.text}
+                                  </span>
+                                </button>
+                              </li>
+                            {/each}
+                          </ul>
+                        {/if}
                       </div>
                     {/if}
 
@@ -582,19 +689,18 @@
                       </div>
                     </div>
                   </article>
-                {:else}
-                  <div class="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed border-border bg-background/30 transition-all duration-300 hover:border-primary hover:bg-primary/5">
-                    <span class="text-xs uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
-                      <Move size={14} class="opacity-50" />
-                      {$_("tasks.dropTasksHere")}
-                    </span>
-                  </div>
-                {/each}
-              </div>
+          {:else}
+            <!-- Empty column: a quiet drop target rather than a heavy dashed box -->
+            <div class="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 transition-colors duration-200 hover:border-primary hover:bg-primary/5">
+              <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <Move size={13} class="opacity-50" />
+                {$_("tasks.dropTasksHere")}
+              </span>
             </div>
           {/each}
         </div>
       </div>
+    {/each}
   </div>
 </main>
 

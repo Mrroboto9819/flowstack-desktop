@@ -194,6 +194,36 @@ export const statusStore = {
     return status;
   },
 
+  /**
+   * Insert a status that already exists in an import file, preserving its id.
+   *
+   * Status ids are semantic (BACKLOG, DONE, ...) rather than UUIDs, because a
+   * status is config referenced by name across installs, not an entity. Without
+   * this, importing onto a cleared install loses every custom column and its
+   * tasks fall back to BACKLOG.
+   *
+   * @param {any} status
+   */
+  restore(status) {
+    if (!status || !status.status) return null;
+    if (statuses.some((s) => s.id === status.id || s.status === status.status)) return null;
+
+    const now = new Date().toISOString();
+    const maxOrder = statuses.reduce((max, s) => Math.max(max, s.order ?? 0), -1);
+    const restored = {
+      show: true,
+      order: maxOrder + 1,
+      ...status,
+      id: status.id || status.status,
+      created: status.created || now,
+      updated: now,
+    };
+
+    statuses = [...statuses, restored];
+    saveStatuses();
+    return restored;
+  },
+
   update(id, updates) {
     const now = new Date().toISOString();
     statuses = statuses.map((status) =>

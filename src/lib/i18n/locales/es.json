@@ -225,7 +225,13 @@
     "unassigned": "Sin asignar",
     "backlog": "Backlog",
     "addToSprint": "Agregar al sprint",
-    "removeFromSprint": "Quitar del sprint"
+    "removeFromSprint": "Quitar del sprint",
+    "tools": "Herramientas",
+    "copySummaryHint": "Copia el tablero filtrado como texto",
+    "exportTasks": "Exportar tareas",
+    "exportTasksHint": "Guarda las tareas filtradas como JSON",
+    "importTasks": "Importar tareas",
+    "importTasksHint": "Combina tareas desde un archivo JSON"
   },
   "sprint": {
     "title": "Tablero de Sprint",

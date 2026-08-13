@@ -53,17 +53,61 @@ export const sprintStore = {
   create(sprintData) {
     const now = new Date().toISOString();
     const sprint = {
-      id: newId(),
-      created: now,
-      updated: now,
       status: "planned",
       ...sprintData,
+      // Store-owned fields come last so a caller cannot overwrite the generated
+      // UUID and collide with an existing sprint
+      id: newId(),
+      origin: "app",
+      created: now,
+      updated: now,
     };
+
+    // Creating an "active" sprint must go through the same demotion rule as
+    // activate(), otherwise two sprints can be active at once and getActive()
+    // silently returns only the first
+    if (sprint.status === "active") {
+      sprints = sprints.map((s) =>
+        s.status === "active" ? { ...s, status: "planned" } : s
+      );
+    }
 
     sprints = [sprint, ...sprints];
     saveSprints();
     toastStore.success("Sprint created");
     return sprint;
+  },
+
+  /**
+   * Insert a sprint that already has an id, preserving it.
+   *
+   * Used by task import so a sprint referenced by an export file is recreated
+   * under its original UUID and the task -> sprint relationship holds by id.
+   * Unlike create(), this never mints a new id and never forces status.
+   *
+   * @param {any} sprint
+   */
+  restore(sprint) {
+    if (!sprint || !sprint.id || sprints.some((s) => s.id === sprint.id)) return null;
+
+    const now = new Date().toISOString();
+    const restored = {
+      status: "planned",
+      ...sprint,
+      origin: sprint.origin || "import",
+      importedAt: now,
+      created: sprint.created || now,
+      updated: now,
+    };
+
+    // An imported sprint must never silently become a second active sprint
+    if (restored.status === "active" && sprints.some((s) => s.status === "active")) {
+      restored.status = "planned";
+    }
+
+    sprints = [...sprints, restored];
+    saveSprints();
+    return restored;
   },
 
   update(id, updates) {

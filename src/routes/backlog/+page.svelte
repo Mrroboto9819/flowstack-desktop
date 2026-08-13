@@ -74,77 +74,55 @@
   }
 </script>
 
-<main class="min-h-screen px-6 pt-6 pb-10">
-  <!-- Header with Title & Description -->
-  <header class="mb-6">
-    <div class="flex items-center gap-3">
-      <div class="rounded-xl bg-primary/10 border border-primary/30 p-2.5">
-        <Layers3 size={24} class="text-primary" />
+<main class="min-h-screen px-4 pt-6 pb-10 sm:px-6">
+  <!-- Page header: title, counts and action, separated by a rule -->
+  <header class="mb-6 border-b border-border pb-5">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold text-foreground sm:text-3xl">{$_("backlog.title")}</h1>
+        <p class="mt-1 text-sm text-muted-foreground">{$_("backlog.description")}</p>
       </div>
-      <div>
-        <h1 class="text-3xl font-bold text-foreground">{$_("backlog.title")}</h1>
-        <p class="text-muted-foreground mt-1">{$_("backlog.description")}</p>
-      </div>
+      <button
+        type="button"
+        class="btn btn-primary"
+        onclick={openTaskModal}
+      >
+        <Plus size={16} />
+        {$_("backlog.newItem")}
+      </button>
     </div>
+
+    <!-- Figures as a line of text rather than three boxes -->
+    <dl class="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+      <div class="flex items-baseline gap-1.5">
+        <dd class="font-semibold text-foreground">{backlogItems.length}</dd>
+        <dt class="text-muted-foreground">{$_("backlog.items")}</dt>
+      </div>
+      <div class="flex items-baseline gap-1.5">
+        <dd class="font-semibold text-foreground">{getTotalPoints(backlogItems)}</dd>
+        <dt class="text-muted-foreground">{$_("backlog.pointsInBacklog")}</dt>
+      </div>
+      <div class="flex items-baseline gap-1.5">
+        <dt class="text-muted-foreground">{$_("backlog.activeSprint")}</dt>
+        <dd class="font-semibold text-foreground">
+          {activeSprint ? activeSprint.name : $_("common.none")}
+        </dd>
+      </div>
+    </dl>
   </header>
 
   <div class="space-y-6">
-    <!-- Stats Card -->
-    <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
-        <div>
-          <h2 class="text-lg font-semibold text-foreground">{$_("backlog.overview")}</h2>
-          <p class="text-sm text-muted-foreground">{$_("backlog.trackMetrics")}</p>
-        </div>
-        <button
-          type="button"
-          class="btn btn-primary shadow-sm"
-          onclick={openTaskModal}
-        >
-          <Plus size={16} />
-          {$_("backlog.newItem")}
-        </button>
-      </div>
-
-      <!-- Stats Grid -->
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div class="rounded-xl border border-border bg-background px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-muted-foreground">
-            {$_("backlog.items")}
-          </p>
-          <p class="mt-2 text-2xl font-bold text-foreground">
-            {backlogItems.length}
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-background px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-muted-foreground">
-            {$_("backlog.activeSprint")}
-          </p>
-          <p class="mt-2 text-sm font-semibold text-foreground">
-            {activeSprint ? activeSprint.name : $_("common.none")}
-          </p>
-        </div>
-        <div class="rounded-xl border border-border bg-background px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-muted-foreground">
-            {$_("backlog.pointsInBacklog")}
-          </p>
-          <p class="mt-2 text-2xl font-bold text-foreground">
-            {getTotalPoints(backlogItems)}
-          </p>
-        </div>
-      </div>
-    </div>
-
     <!-- Backlog List -->
-    <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-semibold text-foreground">{$_("backlog.itemsList")}</h3>
-      </div>
+    <section>
+      <h2 class="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {$_("backlog.itemsList")}
+      </h2>
 
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid gap-4 lg:grid-cols-2">
         {#each backlogItems as task (task.id)}
           {@const priorityColor = getPriorityColor(task.priority || "medium")}
-          <article class="rounded-xl border border-border bg-background p-5 shadow-sm hover:shadow-md transition-shadow">
+          <!-- The item is the only surface on this page -->
+          <article class="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary">
             <div class="flex items-start justify-between gap-3">
               <!-- Content -->
               <div class="flex-1 min-w-0">
@@ -227,7 +205,7 @@
             </div>
           </article>
         {:else}
-          <div class="col-span-2 rounded-xl border border-dashed border-border p-8 text-center">
+          <div class="py-16 text-center lg:col-span-2">
             <p class="text-sm text-muted-foreground">
               {$_("backlog.empty")} {$_("backlog.emptyMessage")}
             </p>
@@ -242,7 +220,7 @@
           </div>
         {/each}
       </div>
-    </div>
+    </section>
   </div>
 </main>
 

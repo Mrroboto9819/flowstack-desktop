@@ -78,6 +78,41 @@ export const userStore = {
     toastStore.success("Team member removed");
   },
 
+  /**
+   * Insert a user that already has an id, preserving it.
+   * Used by import so task -> user relationships hold by UUID across installs.
+   * @param {any} user
+   */
+  restore(user) {
+    if (!user || !user.id || users.some((u) => u.id === user.id)) return null;
+
+    const now = new Date().toISOString();
+    const restored = {
+      ...user,
+      origin: user.origin || "import",
+      importedAt: now,
+      created: user.created || now,
+      updated: now,
+    };
+
+    users = [...users, restored];
+    saveUsers();
+    return restored;
+  },
+
+  /**
+   * Find a user by their display name ("Name Lastname"), case-insensitive.
+   * Backs the migration from the old name-based `asign` field to `assigneeId`.
+   * @param {string} fullName
+   */
+  getByFullName(fullName) {
+    if (typeof fullName !== "string" || !fullName.trim()) return undefined;
+    const wanted = fullName.trim().toLowerCase();
+    return users.find(
+      (u) => `${u.name || ""} ${u.lastname || ""}`.trim().toLowerCase() === wanted
+    );
+  },
+
   getById(id) {
     return users.find((user) => user.id === id);
   },

@@ -14,8 +14,10 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Set dynamically by theme.svelte.js */
-    /* --primary: set by JavaScript */
+    /* Primary - defaults to emerald, overridden at runtime by theme.svelte.js.
+       This must stay defined here: without it, hsl(var(--primary)) is invalid
+       and every primary-coloured element renders transparent/white. */
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary */
@@ -77,8 +79,10 @@
     --popover: 224 50% 8%;
     --popover-foreground: 210 20% 98%;
 
-    /* Primary - Set dynamically by theme.svelte.js */
-    /* --primary: set by JavaScript */
+    /* Primary - defaults to emerald, overridden at runtime by theme.svelte.js.
+       This must stay defined here: without it, hsl(var(--primary)) is invalid
+       and every primary-coloured element renders transparent/white. */
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary */
@@ -133,6 +137,63 @@
 
   * {
     @apply border-border;
+  }
+
+  /* Scrollbars follow the theme.
+
+     `color-scheme` is what stops the browser painting its own LIGHT scrollbar
+     (and light form controls) on a dark page - without it, native scrollbars
+     ignore every CSS token below and render white. */
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* WebKit/WKWebView styling. Deliberately NOT paired with `scrollbar-color`
+     on the same elements: when that standard property is set, Chrome switches
+     to standard scrollbar rendering and ignores these ::-webkit rules
+     entirely, which is what left the bar white. Firefox gets its own block
+     below. Track stays transparent so no light strip lands on a dark panel. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* --border rather than --muted-foreground: the latter is a LIGHT grey in dark
+     mode, so even at low opacity the bar read as white against the board. This
+     tracks the same edge colour the rest of the UI uses, in both themes. */
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    /* Transparent border + background-clip insets the thumb, so it reads as a
+       floating pill rather than a full-width bar */
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.45);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox has no ::-webkit-scrollbar, so it needs the standard properties.
+     Scoped behind @supports so Chrome never sees scrollbar-color and keeps
+     using the styled ::-webkit rules above. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: hsl(var(--border)) transparent;
+    }
   }
 }
 

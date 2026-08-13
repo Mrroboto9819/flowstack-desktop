@@ -27,10 +27,11 @@
 
   // Define all nav items with methodology visibility
   const allNavItems = [
-    { href: "/sprint", labelKey: "nav.sprint", icon: KanbanSquare, methodologies: ["agile"] },
+    // /sprint was merged into /sprints - one page now holds the active sprint
+    // board and the sprint list, so there is a single nav entry for it
+    { href: "/sprints", labelKey: "nav.sprints", icon: KanbanSquare, methodologies: ["agile"] },
     { href: "/tasks", labelKey: "nav.tasks", icon: Clipboard, methodologies: ["agile", "kanban", "waterfall"] },
     { href: "/backlog", labelKey: "nav.backlog", icon: Layers3, methodologies: ["agile", "kanban"] },
-    { href: "/sprints", labelKey: "nav.sprints", icon: Calendar, methodologies: ["agile"] },
     { href: "/team", labelKey: "nav.team", icon: Users, methodologies: ["agile", "kanban", "waterfall"] },
     { href: "/reports", labelKey: "nav.reports", icon: BarChart3, methodologies: ["agile", "kanban", "waterfall"] },
     { href: "/settings", labelKey: "nav.boardSettings", icon: Settings, methodologies: ["agile", "kanban", "waterfall"] },

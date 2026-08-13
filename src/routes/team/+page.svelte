@@ -139,79 +139,53 @@
   }
 </script>
 
-<main class="min-h-screen px-6 pt-6 pb-10">
+<main class="min-h-screen px-4 pt-6 pb-10 sm:px-6">
   <!-- Header -->
-  <header class="mb-6 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="rounded-xl bg-primary/10 border border-primary/30 p-2.5">
-        <Users size={24} class="text-primary" />
-      </div>
-      <div>
-        <h1 class="text-3xl font-bold text-foreground">{$_("team.title")}</h1>
-        <p class="text-muted-foreground mt-1">
+  <header class="mb-6 border-b border-border pb-5">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold text-foreground sm:text-3xl">{$_("team.title")}</h1>
+        <p class="mt-1 text-sm text-muted-foreground">
           {$_("team.description")}
         </p>
       </div>
+      <button
+        type="button"
+        class="btn btn-primary"
+        onclick={openUserModal}
+      >
+        <Plus size={16} />
+        {$_("team.addMember")}
+      </button>
     </div>
-    <button
-      type="button"
-      class="btn btn-primary shadow-sm"
-      onclick={openUserModal}
-    >
-      <Plus size={16} />
-      {$_("team.addMember")}
-    </button>
+
+    <!-- Figures inline instead of three boxes inside a panel -->
+    {#if users.length > 0}
+      <dl class="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+        <div class="flex items-baseline gap-1.5">
+          <dd class="font-semibold text-foreground">{users.length}</dd>
+          <dt class="text-muted-foreground">{$_("team.totalMembers")}</dt>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <dd class="font-semibold text-foreground">{Object.keys(usersByRole()).length}</dd>
+          <dt class="text-muted-foreground">{$_("team.roles")}</dt>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <dd class="font-semibold text-foreground">
+            {users.filter(
+              (u) => getUserTaskCount(`${u.name} ${u.lastname || ""}`) > 0,
+            ).length}
+          </dd>
+          <dt class="text-muted-foreground">{$_("team.withTasks")}</dt>
+        </div>
+      </dl>
+    {/if}
   </header>
 
   <div class="space-y-6">
-    <!-- Stats Card -->
-    {#if users.length > 0}
-      <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <div class="grid gap-4 sm:grid-cols-3">
-          <div class="rounded-xl border border-border bg-background px-4 py-3">
-            <p
-              class="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1"
-            >
-              <Users2 size={12} />
-              {$_("team.totalMembers")}
-            </p>
-            <p class="mt-2 text-2xl font-bold text-foreground">
-              {users.length}
-            </p>
-          </div>
-          <div class="rounded-xl border border-border bg-background px-4 py-3">
-            <p
-              class="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1"
-            >
-              <Briefcase size={12} />
-              {$_("team.roles")}
-            </p>
-            <p class="mt-2 text-2xl font-bold text-foreground">
-              {Object.keys(usersByRole()).length}
-            </p>
-          </div>
-          <div class="rounded-xl border border-border bg-background px-4 py-3">
-            <p
-              class="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1"
-            >
-              <UserCheck size={12} />
-              {$_("team.withTasks")}
-            </p>
-            <p class="mt-2 text-2xl font-bold text-foreground">
-              {users.filter(
-                (u) => getUserTaskCount(`${u.name} ${u.lastname || ""}`) > 0,
-              ).length}
-            </p>
-          </div>
-        </div>
-      </div>
-    {/if}
-
     <!-- Team Members List -->
     {#if users.length === 0}
-      <div
-        class="rounded-2xl border border-dashed border-border p-12 text-center"
-      >
+      <div class="py-16 text-center">
         <Users2
           size={48}
           class="mx-auto mb-4 text-muted-foreground opacity-50"
@@ -228,23 +202,26 @@
         </button>
       </div>
     {:else}
-      <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="text-lg font-semibold text-foreground">{$_("team.teamMembers")}</h2>
+      <section>
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {$_("team.teamMembers")}
+          </h2>
           <p class="text-sm text-muted-foreground">
             {users.length} {users.length === 1 ? $_("team.member") : $_("team.members")}
           </p>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {#each users as user (user.id)}
             {@const fullName = `${user.name} ${user.lastname || ""}`.trim()}
             {@const taskCount = getUserTaskCount(fullName)}
             {@const activeTasks = getUserActiveTasks(fullName)}
             {@const roleColor = getRoleColor(user.rol)}
 
+            <!-- The member is the only surface on this page -->
             <article
-              class="rounded-xl border border-border bg-background p-5 hover:shadow-md transition-shadow"
+              class="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary"
             >
               <div class="flex items-start justify-between gap-3 mb-4">
                 <!-- Avatar and Info -->
@@ -305,20 +282,16 @@
 
               <!-- Task Stats -->
               <div class="grid grid-cols-2 gap-2 pt-3 border-t border-border">
-                <div class="rounded-lg bg-muted/50 px-3 py-2">
-                  <p
-                    class="text-[9px] uppercase tracking-wide text-muted-foreground"
-                  >
+                <div>
+                  <p class="text-[9px] uppercase tracking-wide text-muted-foreground">
                     {$_("team.totalTasks")}
                   </p>
                   <p class="mt-1 text-lg font-bold text-foreground">
                     {taskCount}
                   </p>
                 </div>
-                <div class="rounded-lg bg-muted/50 px-3 py-2">
-                  <p
-                    class="text-[9px] uppercase tracking-wide text-muted-foreground"
-                  >
+                <div>
+                  <p class="text-[9px] uppercase tracking-wide text-muted-foreground">
                     {$_("team.active")}
                   </p>
                   <p class="mt-1 text-lg font-bold text-primary">
@@ -329,7 +302,7 @@
             </article>
           {/each}
         </div>
-      </div>
+      </section>
     {/if}
   </div>
 </main>

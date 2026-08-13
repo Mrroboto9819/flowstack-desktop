@@ -35,6 +35,111 @@ const STORAGE_KEYS = {
   locale: "taskflow_locale",
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v) => typeof v === "string" && UUID_RE.test(v);
+
+/**
+ * Give every stored record a UUID, remapping the references that point at it.
+ *
+ * Older data (and anything hand-authored) can carry ids like "st-1", a numeric
+ * index, or none at all. Those cannot be exported as a keyed relationship
+ * graph. This runs BEFORE any store hydrates, directly on localStorage, so the
+ * stores load already-correct data.
+ *
+ * Reminting an id is only safe if everything pointing at it is updated in the
+ * same pass - hence the id maps and the task fix-up below.
+ *
+ * Statuses are deliberately excluded: their ids are semantic (BACKLOG, DONE)
+ * and are matched by name across installs, so a UUID there would break imports.
+ *
+ * @returns {boolean} whether anything was rewritten
+ */
+function migrateIdsToUuid() {
+  if (typeof localStorage === "undefined") return false;
+
+  const read = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+  const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+
+  let changed = false;
+  /** @type {Record<string, Record<string, string>>} */
+  const idMaps = {};
+
+  // Pass 1 - the records themselves
+  for (const name of ["sprints", "users", "tags"]) {
+    const rows = read(STORAGE_KEYS[name]);
+    if (!Array.isArray(rows)) continue;
+
+    /** @type {Record<string, string>} */
+    const map = {};
+    let touched = false;
+
+    const next = rows.map((row) => {
+      if (!row || typeof row !== "object") return row;
+      if (isUuid(row.id)) return row;
+
+      const fresh = crypto.randomUUID();
+      if (row.id) map[row.id] = fresh; // remember so references can follow
+      touched = true;
+      return { ...row, id: fresh };
+    });
+
+    idMaps[name] = map;
+    if (touched) {
+      write(STORAGE_KEYS[name], next);
+      changed = true;
+    }
+  }
+
+  // Pass 2 - the foreign keys on tasks
+  const tasks = read(STORAGE_KEYS.tasks);
+  if (Array.isArray(tasks)) {
+    let touched = false;
+
+    const next = tasks.map((task) => {
+      if (!task || typeof task !== "object") return task;
+      const patch = {};
+
+      if (!isUuid(task.id)) patch.id = crypto.randomUUID();
+      if (task.sprintId && idMaps.sprints?.[task.sprintId]) {
+        patch.sprintId = idMaps.sprints[task.sprintId];
+      }
+      if (task.assigneeId && idMaps.users?.[task.assigneeId]) {
+        patch.assigneeId = idMaps.users[task.assigneeId];
+      }
+      if (Array.isArray(task.tagIds)) {
+        const remapped = task.tagIds.map((id) => idMaps.tags?.[id] || id);
+        if (remapped.some((id, i) => id !== task.tagIds[i])) patch.tagIds = remapped;
+      }
+      if (Array.isArray(task.subtasks)) {
+        const subtasks = task.subtasks.map((st) =>
+          st && typeof st === "object" && !isUuid(st.id)
+            ? { ...st, id: crypto.randomUUID() }
+            : st
+        );
+        if (subtasks.some((st, i) => st !== task.subtasks[i])) patch.subtasks = subtasks;
+      }
+
+      if (Object.keys(patch).length === 0) return task;
+      touched = true;
+      return { ...task, ...patch };
+    });
+
+    if (touched) {
+      write(STORAGE_KEYS.tasks, next);
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
 /**
  * Initialize all stores - call this once on app mount
  */
@@ -42,16 +147,24 @@ export function hydrateAllStores() {
   // Try to migrate any legacy data first
   migrateFromLegacyStorage();
 
-  // Then hydrate all stores
-  taskStore.hydrate();
+  // Then give every record a UUID and remap references, before anything reads
+  // the data - so the stores hydrate from an already-keyed graph
+  migrateIdsToUuid();
+
+  // Order matters: tasks resolve their assigneeId / tagIds / sprintId foreign
+  // keys during hydration, so every record they point at must already be
+  // loaded. Hydrating tasks first leaves those keys unresolved (null).
   userStore.hydrate();
-  currentUserStore.hydrate();
-  themeStore.hydrate();
+  tagStore.hydrate();
   sprintStore.hydrate();
   statusStore.hydrate();
   statusStore.ensureDoneStatus(); // Ensure DONE status exists and is protected
+
+  taskStore.hydrate();
+
+  currentUserStore.hydrate();
+  themeStore.hydrate();
   settingsStore.hydrate();
-  tagStore.hydrate();
 
   toastStore.info("Data loaded", 1400);
 }

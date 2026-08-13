@@ -108,6 +108,55 @@ export const tagStore = {
     toastStore.success("Tag deleted");
   },
 
+  /**
+   * Insert a tag that already has an id, preserving it.
+   * @param {any} tag
+   */
+  restore(tag) {
+    if (!tag || !tag.id || tags.some((t) => t.id === tag.id)) return null;
+
+    const now = new Date().toISOString();
+    const restored = {
+      color: DEFAULT_TAG_COLORS[tags.length % DEFAULT_TAG_COLORS.length],
+      ...tag,
+      origin: tag.origin || "import",
+      importedAt: now,
+      created: tag.created || now,
+      updated: now,
+    };
+
+    tags = [...tags, restored];
+    saveTags();
+    return restored;
+  },
+
+  /**
+   * Find a tag by name (case-insensitive), creating it when absent.
+   * Returns the tag, so callers can store its UUID rather than its name.
+   * @param {string} name
+   */
+  ensureByName(name) {
+    if (typeof name !== "string" || !name.trim()) return null;
+    const wanted = name.trim();
+    const existing = tags.find(
+      (t) => (t.name || "").trim().toLowerCase() === wanted.toLowerCase()
+    );
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const tag = {
+      id: newId(),
+      name: wanted,
+      color: DEFAULT_TAG_COLORS[tags.length % DEFAULT_TAG_COLORS.length],
+      origin: "app",
+      created: now,
+      updated: now,
+    };
+    tags = [...tags, tag];
+    saveTags();
+    return tag;
+  },
+
   getById(id) {
     return tags.find((tag) => tag.id === id);
   },

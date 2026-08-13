@@ -24,21 +24,26 @@ const THEMES = {
     },
 };
 
-let currentTheme = $state("emerald");
+const DEFAULT_THEME = "emerald";
 
-// Apply saved theme immediately on module load (before any rendering)
+let currentTheme = $state(DEFAULT_THEME);
+
+// Apply the theme immediately on module load (before any rendering).
+// Falls back to DEFAULT_THEME when nothing is saved - a fresh install has no
+// stored value, and skipping this left --primary undefined, which made every
+// primary-coloured element render white.
 if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
     const saved = localStorage.getItem(STORAGE_KEY_THEME);
-    if (saved && saved in THEMES) {
-        // @ts-ignore
-        const color = THEMES[saved];
-        document.documentElement.style.setProperty("--primary", color.primary, "important");
-        document.documentElement.style.setProperty("--ring", color.primary, "important");
-        document.documentElement.style.setProperty("--sidebar-primary", color.primary, "important");
-        document.documentElement.style.setProperty("--sidebar-ring", color.primary, "important");
-        document.documentElement.style.setProperty("--emerald", color.primary, "important");
-        currentTheme = saved;
-    }
+    const initial = saved && saved in THEMES ? saved : DEFAULT_THEME;
+
+    // @ts-ignore - initial is always a valid THEMES key
+    const color = THEMES[initial];
+    document.documentElement.style.setProperty("--primary", color.primary, "important");
+    document.documentElement.style.setProperty("--ring", color.primary, "important");
+    document.documentElement.style.setProperty("--sidebar-primary", color.primary, "important");
+    document.documentElement.style.setProperty("--sidebar-ring", color.primary, "important");
+    document.documentElement.style.setProperty("--emerald", color.primary, "important");
+    currentTheme = initial;
 }
 
 export const themeStore = {
@@ -50,9 +55,7 @@ export const themeStore = {
         // Theme is already applied above, this is just for consistency
         if (typeof localStorage === "undefined") return;
         const stored = localStorage.getItem(STORAGE_KEY_THEME);
-        if (stored && stored in THEMES) {
-            currentTheme = stored;
-        }
+        currentTheme = stored && stored in THEMES ? stored : DEFAULT_THEME;
     },
 
     /**

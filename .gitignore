@@ -24,3 +24,5 @@ coverage
 Thumbs.db
 .claude/
 .qodo/
+CLAUDE.md
+graphify-out/
