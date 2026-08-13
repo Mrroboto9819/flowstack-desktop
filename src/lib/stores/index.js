@@ -20,7 +20,7 @@ import { statusStore } from "./statuses.svelte.js";
 import { settingsStore } from "./settings.svelte.js";
 import { tagStore } from "./tags.svelte.js";
 import { toastStore } from "../toastStore.svelte.js";
-import { initPersistence, flushNow, persistenceInfo } from "../persistence.js";
+import { initPersistence, flushNow, persistenceInfo, save as saveSlice } from "../persistence.js";
 
 export { persistenceInfo, flushNow };
 
@@ -324,47 +324,52 @@ export async function downloadExportedData() {
  * @param {string} jsonText - The JSON text to import
  * @returns {boolean} - Whether import was successful
  */
-function processImportData(jsonText) {
+/**
+ * Apply an imported backup.
+ *
+ * Writes through the persistence layer, NOT straight to localStorage. The
+ * snapshot file is the source of truth now: writing only to localStorage would
+ * be silently overwritten from the file on the reload below.
+ *
+ * @param {string} jsonText
+ */
+async function processImportData(jsonText) {
   if (typeof localStorage === "undefined") return false;
 
   try {
     const importData = JSON.parse(jsonText);
 
-    // Validate import data structure
     if (!importData.data || typeof importData.data !== "object") {
       toastStore.error("Invalid backup file format");
       return false;
     }
 
-    // Import main data keys
-    Object.entries(importData.data).forEach(([key, value]) => {
-      // Handle nested preferences object (new format)
-      if (key === "preferences" && typeof value === "object") {
-        Object.entries(value).forEach(([prefKey, prefValue]) => {
-          const storageKey = STORAGE_KEYS[prefKey];
-          if (storageKey && prefValue !== null) {
-            const stringValue = typeof prefValue === "string" ? prefValue : JSON.stringify(prefValue);
-            localStorage.setItem(storageKey, stringValue);
-          }
-        });
-        return;
+    // Data slices go through the persistence layer so they reach the file
+    for (const slice of ["tasks", "users", "sprints", "statuses", "settings", "tags"]) {
+      if (importData.data[slice] !== undefined) {
+        saveSlice(slice, importData.data[slice]);
       }
+    }
 
-      // Handle regular keys
-      const storageKey = STORAGE_KEYS[key];
-      if (storageKey) {
-        const stringValue = typeof value === "string" ? value : JSON.stringify(value);
-        localStorage.setItem(storageKey, stringValue);
+    // Preferences are single values that live outside the snapshot slices
+    const preferences = importData.data.preferences;
+    if (preferences && typeof preferences === "object") {
+      for (const [prefKey, prefValue] of Object.entries(preferences)) {
+        const storageKey = STORAGE_KEYS[prefKey];
+        if (storageKey && prefValue !== null) {
+          localStorage.setItem(
+            storageKey,
+            typeof prefValue === "string" ? prefValue : JSON.stringify(prefValue)
+          );
+        }
       }
-    });
+    }
+
+    // Must land on disk BEFORE the reload, or startup reads the old snapshot
+    await flushNow();
 
     toastStore.success("Data imported successfully. Reloading...");
-
-    // Reload to apply imported data
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
-
+    setTimeout(() => window.location.reload(), 1500);
     return true;
   } catch (error) {
     console.error("Import failed:", error);
