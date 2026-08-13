@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "flowstack": {
+      "command": "node",
+      "args": ["mcp/server.js"]
+    }
+  }
+}

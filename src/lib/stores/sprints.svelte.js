@@ -5,6 +5,7 @@
 import { toastStore } from "../toastStore.svelte.js";
 import { taskStore } from "./tasks.svelte.js";
 import { settingsStore } from "./settings.svelte.js";
+import { load as loadSlice, save as saveSlice } from "../persistence.js";
 
 const STORAGE_KEY = "taskflow_sprints";
 
@@ -26,7 +27,7 @@ function removeDuplicates(items) {
 function saveSprints() {
   sprints = removeDuplicates(sprints);
   if (typeof localStorage !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sprints));
+    saveSlice("sprints", sprints);
   }
 }
 
@@ -39,9 +40,9 @@ export const sprintStore = {
     if (typeof localStorage === "undefined") return;
 
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = loadSlice("sprints", null);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed = stored;
         sprints = Array.isArray(parsed) ? removeDuplicates(parsed) : [];
       }
     } catch (error) {

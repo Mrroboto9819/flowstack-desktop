@@ -5,6 +5,7 @@
 import { toastStore } from "../toastStore.svelte.js";
 import { tagStore } from "./tags.svelte.js";
 import { userStore } from "./users.svelte.js";
+import { load as loadSlice, save as saveSlice } from "../persistence.js";
 
 const STORAGE_KEY = "taskflow_tasks";
 
@@ -148,7 +149,7 @@ function resolveRelations(task) {
 function saveTasks() {
   tasks = removeDuplicates(tasks);
   if (typeof localStorage !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    saveSlice("tasks", tasks);
   }
 }
 
@@ -165,9 +166,9 @@ export const taskStore = {
     if (typeof localStorage === "undefined") return;
 
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = loadSlice("tasks", null);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed = stored;
         const rows = Array.isArray(parsed) ? removeDuplicates(parsed) : [];
 
         // Migrate legacy data in place:
@@ -206,7 +207,7 @@ export const taskStore = {
 
         // Persist once so the migration does not re-run on every load
         if (migrated && typeof localStorage !== "undefined") {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+          saveSlice("tasks", tasks);
         }
       }
     } catch (error) {

@@ -3,6 +3,7 @@
  */
 
 import { toastStore } from "../toastStore.svelte.js";
+import { load as loadSlice, save as saveSlice } from "../persistence.js";
 
 const STORAGE_KEY = "taskflow_tags";
 
@@ -37,7 +38,7 @@ function removeDuplicates(items) {
 function saveTags() {
   tags = removeDuplicates(tags);
   if (typeof localStorage !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tags));
+    saveSlice("tags", tags);
   }
 }
 
@@ -50,9 +51,9 @@ export const tagStore = {
     if (typeof localStorage === "undefined") return;
 
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = loadSlice("tags", null);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed = stored;
         // Migrate old string array to new object format
         if (Array.isArray(parsed)) {
           if (parsed.length > 0 && typeof parsed[0] === "string") {

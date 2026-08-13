@@ -7,7 +7,7 @@
   import UpdateScreen from "../lib/UpdateScreen.svelte";
   import ConfirmModal from "../lib/components/ConfirmModal.svelte";
   import LanguageSelector from "../lib/components/LanguageSelector.svelte";
-  import { hydrateAllStores, clearAllStores, sprintStore } from "../lib/stores/index.js";
+  import { initApp, clearAllStores, sprintStore } from "../lib/stores/index.js";
   import { _ } from "$lib/i18n";
 
   let { children } = $props();
@@ -41,7 +41,8 @@
     isLinux = platform.includes('linux');
 
     // Initialize all stores
-    hydrateAllStores();
+    // Async: the on-disk snapshot has to load before stores hydrate
+    initApp();
 
     // Check if active sprint should be auto-finished based on end date
     sprintStore.checkAutoFinish();

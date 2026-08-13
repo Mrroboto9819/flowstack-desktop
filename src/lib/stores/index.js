@@ -20,6 +20,9 @@ import { statusStore } from "./statuses.svelte.js";
 import { settingsStore } from "./settings.svelte.js";
 import { tagStore } from "./tags.svelte.js";
 import { toastStore } from "../toastStore.svelte.js";
+import { initPersistence, flushNow, persistenceInfo } from "../persistence.js";
+
+export { persistenceInfo, flushNow };
 
 // Storage keys for data migration
 const STORAGE_KEYS = {
@@ -143,7 +146,32 @@ function migrateIdsToUuid() {
 /**
  * Initialize all stores - call this once on app mount
  */
-export function hydrateAllStores() {
+/**
+ * Load the on-disk snapshot, then hydrate every store from it.
+ *
+ * Must be awaited before the UI reads any store: persistence is async (the
+ * Tauri fs plugin is), while the stores themselves are synchronous.
+ *
+ * Re-hydrates automatically when the file changes underneath us - that is how
+ * an edit made by the MCP server shows up without restarting the app.
+ */
+export async function initApp() {
+  const result = await initPersistence({
+    onExternalChange: () => {
+      hydrateAllStores({ silent: true });
+      toastStore.info("Data updated externally", 1800);
+    },
+  });
+
+  hydrateAllStores();
+
+  if (result.migrated) {
+    toastStore.success("Data moved to file storage", 2200);
+  }
+  return result;
+}
+
+export function hydrateAllStores(options = {}) {
   // Try to migrate any legacy data first
   migrateFromLegacyStorage();
 
@@ -166,7 +194,7 @@ export function hydrateAllStores() {
   themeStore.hydrate();
   settingsStore.hydrate();
 
-  toastStore.info("Data loaded", 1400);
+  if (!options.silent) toastStore.info("Data loaded", 1400);
 }
 
 /**

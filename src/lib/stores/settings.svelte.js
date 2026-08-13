@@ -1,3 +1,4 @@
+import { load as loadSlice, save as saveSlice } from "../persistence.js";
 /**
  * Settings store - Manages app settings
  */
@@ -13,7 +14,7 @@ let settings = $state({
 
 function saveSettings() {
   if (typeof localStorage !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    saveSlice("settings", settings);
   }
 }
 
@@ -26,9 +27,9 @@ export const settingsStore = {
     if (typeof localStorage === "undefined") return;
 
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = loadSlice("settings", null);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed = stored;
         settings = { ...settings, ...parsed };
       }
     } catch (error) {
