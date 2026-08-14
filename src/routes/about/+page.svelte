@@ -16,31 +16,29 @@
   }
 </script>
 
-<main class="flex-1 p-8 overflow-y-auto">
-  <header class="mb-8">
-    <h1 class="text-2xl font-bold text-foreground">{$_("about.title")}</h1>
-    <p class="text-muted-foreground mt-1">{$_("about.description")}</p>
+<main class="min-h-screen px-4 pt-6 pb-10 sm:px-6">
+  <header class="mb-6 border-b border-border pb-5">
+    <h1 class="text-2xl font-bold text-foreground sm:text-3xl">{$_("about.title")}</h1>
+    <p class="mt-1 text-sm text-muted-foreground">{$_("about.description")}</p>
   </header>
 
-  <div class="max-w-2xl mx-auto space-y-8">
-    <!-- App Info Card -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div class="flex items-center gap-4 mb-6">
-        <div class="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
-          <img src="/app-icon.png" alt="FlowStack" class="w-16 h-16" />
-        </div>
+  <div class="max-w-2xl space-y-8">
+    <!-- App identity: the icon is the only surface on this page -->
+    <section>
+      <div class="mb-4 flex items-center gap-4">
+        <img src="/app-icon.png" alt="FlowStack" class="h-14 w-14 rounded-2xl" />
         <div>
           <h2 class="text-xl font-bold text-foreground">FlowStack</h2>
           <p class="text-sm text-muted-foreground">v{appVersion}</p>
         </div>
       </div>
-      <p class="text-muted-foreground text-sm leading-relaxed">
+      <p class="text-sm leading-relaxed text-muted-foreground">
         {$_("about.appDescription")}
       </p>
     </section>
 
     <!-- Developer Card -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-t border-border pt-6">
       <div class="flex items-center gap-3 mb-6">
         <Heart size={20} class="text-rose-500" />
         <h2 class="text-lg font-semibold text-foreground">{$_("about.developer")}</h2>
@@ -84,7 +82,7 @@
     </section>
 
     <!-- Support Card -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-t border-border pt-6">
       <div class="flex items-center gap-3 mb-6">
         <Coffee size={20} class="text-amber-500" />
         <h2 class="text-lg font-semibold text-foreground">{$_("about.support")}</h2>
@@ -119,11 +117,11 @@
     </section>
 
     <!-- Tech Stack -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-t border-border pt-6">
       <h2 class="text-lg font-semibold text-foreground mb-4">{$_("about.builtWith")}</h2>
       <div class="flex flex-wrap gap-2">
         {#each ["SvelteKit 5", "Tauri 2.0", "TypeScript", "TailwindCSS", "Chart.js"] as tech}
-          <span class="px-3 py-1.5 rounded-full bg-muted/50 text-sm text-muted-foreground">
+          <span class="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
             {tech}
           </span>
         {/each}
@@ -131,7 +129,7 @@
     </section>
 
     <!-- Footer -->
-    <p class="text-center text-sm text-muted-foreground pb-4">
+    <p class="border-t border-border pt-6 text-sm text-muted-foreground">
       {$_("about.madeWith")} <Heart size={14} class="inline text-rose-500" /> {$_("about.madeWithEnd")}
     </p>
   </div>

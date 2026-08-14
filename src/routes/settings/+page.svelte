@@ -16,7 +16,7 @@
   } from "lucide-svelte";
   import { dndzone } from "svelte-dnd-action";
   import { flip } from "svelte/animate";
-  import { statusStore, tagStore, settingsStore, persistenceInfo } from "../../lib/stores/index.js";
+  import { statusStore, tagStore, taskStore, settingsStore, persistenceInfo } from "../../lib/stores/index.js";
   import { toastStore } from "../../lib/toastStore.svelte.js";
   import StandardSwitch from "../../lib/StandardSwitch.svelte";
   import StatusModal from "../../lib/components/StatusModal.svelte";
@@ -25,6 +25,13 @@
   import { _ } from "$lib/i18n";
 
   let statuses = $derived(statusStore.statuses);
+  let allTasks = $derived(taskStore.tasks);
+
+  // Showing how much a column or tag is actually used is more useful than a
+  // creation date - and imported records have no `created`, which rendered as
+  // "Invalid Date"
+  const taskCountFor = (status) => allTasks.filter((t) => t.status === status).length;
+  const tagUsage = (tagId) => allTasks.filter((t) => (t.tagIds || []).includes(tagId)).length;
   let tags = $derived(tagStore.tags);
 
   // MCP permissions. The server reads these out of the snapshot on every call,
@@ -166,20 +173,13 @@
   }
 </script>
 
-<main class="min-h-screen px-6 pt-6 pb-10">
+<main class="min-h-screen px-4 pt-6 pb-10 sm:px-6">
   <!-- Header -->
-  <header class="mb-6">
-    <div class="flex items-center gap-3 mb-2">
-      <div class="rounded-xl bg-primary/10 border border-primary/30 p-2.5">
-        <Settings size={24} class="text-primary" />
-      </div>
-      <div>
-        <h1 class="text-3xl font-bold text-foreground">{$_("settings.title")}</h1>
-        <p class="text-muted-foreground mt-1">
-          {$_("settings.description")}
-        </p>
-      </div>
-    </div>
+  <header class="mb-5">
+    <h1 class="text-2xl font-bold text-foreground sm:text-3xl">{$_("settings.title")}</h1>
+    <p class="mt-1 text-sm text-muted-foreground">
+      {$_("settings.description")}
+    </p>
   </header>
 
   <!-- Tabs -->
@@ -268,7 +268,7 @@
       <div class="space-y-3">
         {#if statuses.length === 0}
           <div
-            class="rounded-2xl border border-dashed border-border p-12 text-center"
+            class="py-16 text-center"
           >
             <LayoutGrid
               size={48}
@@ -294,12 +294,12 @@
             use:dndzone={{ items: visibleStatuses, flipDurationMs }}
             onconsider={handleDndConsider}
             onfinalize={handleDndFinalize}
-            class="space-y-3 outline-none"
+            class="divide-y divide-border border-y border-border outline-none"
           >
             {#each visibleStatuses as status (status.id)}
               <article
                 animate:flip={{ duration: flipDurationMs }}
-                class="rounded-xl border border-border bg-card p-5 flex items-center justify-between transition-all group cursor-move hover:border-primary/50"
+                class="group flex cursor-move items-center justify-between gap-4 py-3 transition-colors hover:bg-muted/30"
               >
                 <div class="flex items-center gap-4 flex-1 min-w-0">
                   <GripVertical
@@ -317,8 +317,9 @@
                         <Lock size={14} class="text-muted-foreground" title={$_("settings.statuses.systemStatus")} />
                       {/if}
                     </h3>
-                    <p class="text-xs text-muted-foreground mt-0.5">
-                      {$_("settings.statuses.created")} {new Date(status.created).toLocaleDateString()}
+                    <p class="mt-0.5 text-xs text-muted-foreground">
+                      {taskCountFor(status.status)}
+                      {taskCountFor(status.status) === 1 ? "task" : "tasks"}
                     </p>
                   </div>
                 </div>
@@ -372,12 +373,9 @@
         {/if}
       </div>
 
-      <!-- Info Box -->
-      <div class="rounded-xl border border-primary/30 bg-primary/5 p-4">
-        <p class="text-sm text-foreground">
-          <span class="font-semibold">💡 Tip:</span> {$_("settings.statuses.tip")}
-        </p>
-      </div>
+      <p class="border-l-2 border-border pl-4 text-xs text-muted-foreground">
+        {$_("settings.statuses.tip")}
+      </p>
     </div>
   {/if}
 
@@ -401,7 +399,7 @@
       <!-- Tags Grid -->
       {#if tags.length === 0}
         <div
-          class="rounded-2xl border border-dashed border-border p-12 text-center"
+          class="py-16 text-center"
         >
           <Tag
             size={48}
@@ -420,7 +418,7 @@
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {#each tags as tag (tag.id)}
             <article
-              class="rounded-xl border border-border bg-card p-4 hover:shadow-md transition-all group"
+              class="group rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary"
             >
               <div class="flex items-start justify-between gap-3 mb-3">
                 <div class="flex-1 min-w-0">
@@ -432,7 +430,7 @@
                     {tag.name}
                   </div>
                   <p class="text-xs text-muted-foreground">
-                    {$_("settings.tags.created")} {new Date(tag.created).toLocaleDateString()}
+                    {tagUsage(tag.id)} {tagUsage(tag.id) === 1 ? "task" : "tasks"}
                   </p>
                 </div>
 
@@ -470,11 +468,9 @@
       {/if}
 
       <!-- Info Box -->
-      <div class="rounded-xl border border-primary/30 bg-primary/5 p-4">
-        <p class="text-sm text-foreground">
-          <span class="font-semibold">💡 Tip:</span> {$_("settings.tags.tip")}
-        </p>
-      </div>
+      <p class="border-l-2 border-border pl-4 text-xs text-muted-foreground">
+        {$_("settings.tags.tip")}
+      </p>
     </div>
   {/if}
 
