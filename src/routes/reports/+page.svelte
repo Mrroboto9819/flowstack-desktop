@@ -47,12 +47,12 @@
   Chart.register(...registerables);
 
   // Canvas refs
-  let velocityCanvas: HTMLCanvasElement;
-  let burndownCanvas: HTMLCanvasElement;
-  let monthlyCanvas: HTMLCanvasElement;
-  let taskTypeCanvas: HTMLCanvasElement;
-  let priorityCanvas: HTMLCanvasElement;
-  let teamCanvas: HTMLCanvasElement;
+  let velocityCanvas: HTMLCanvasElement | undefined = $state();
+  let burndownCanvas: HTMLCanvasElement | undefined = $state();
+  let monthlyCanvas: HTMLCanvasElement | undefined = $state();
+  let taskTypeCanvas: HTMLCanvasElement | undefined = $state();
+  let priorityCanvas: HTMLCanvasElement | undefined = $state();
+  let teamCanvas: HTMLCanvasElement | undefined = $state();
 
   // Chart instances
   let velocityChart: Chart | null = null;
@@ -66,9 +66,17 @@
   let activeTab = $state("overview"); // overview, monthly, team, analysis, metrics
 
   // ============ FILTERS ============
+  // Filters start collapsed so the charts own the screen; the badge keeps any
+  // active filter visible while it is closed
+  let filtersOpen = $state(false);
+
   let filterDateRange = $state("all"); // all, week, month, quarter, year
   let filterSprint = $state("all");
   let filterMember = $state("all");
+
+  let activeFilterCount = $derived(
+    [filterDateRange, filterSprint, filterMember].filter((v) => v !== "all").length
+  );
 
   // Date range helpers
   function getDateRangeStart(): Date | null {
@@ -843,6 +851,7 @@
         { id: "analysis", label: $_("reports.analysis"), icon: PieChart, methodologies: ["agile", "kanban", "waterfall"] },
         { id: "metrics", label: $_("reports.metrics"), icon: Timer, methodologies: ["agile", "kanban", "waterfall"] },
       ].filter(tab => tab.methodologies.includes(methodology)) as tab}
+        {@const TabIcon = tab.icon}
         <button
           type="button"
           class="px-4 py-3 text-sm font-semibold transition-all border-b-2 flex items-center gap-2"
@@ -852,19 +861,36 @@
           class:text-muted-foreground={activeTab !== tab.id}
           onclick={() => (activeTab = tab.id)}
         >
-          <svelte:component this={tab.icon} size={16} />
+          <TabIcon size={16} />
           {tab.label}
         </button>
       {/each}
     </div>
   </div>
 
-  <!-- Filters -->
-  <div class="mb-6 flex flex-wrap items-center gap-3 p-4 rounded-xl bg-card border border-border">
-    <div class="flex items-center gap-2 text-sm text-muted-foreground">
-      <Filter size={16} />
-      <span>{$_("reports.filters")}:</span>
-    </div>
+  <!-- Filters collapse so the charts get the whole surface -->
+  <section class="mb-6" aria-label={$_("reports.filters")}>
+    <button
+      type="button"
+      class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+      onclick={() => (filtersOpen = !filtersOpen)}
+      aria-expanded={filtersOpen}
+    >
+      <Filter size={13} />
+      {$_("reports.filters")}
+      {#if activeFilterCount > 0}
+        <span class="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+          {activeFilterCount}
+        </span>
+      {/if}
+      <ChevronDown
+        size={14}
+        class="transition-transform duration-200 {filtersOpen ? 'rotate-180' : ''}"
+      />
+    </button>
+
+    {#if filtersOpen}
+    <div class="flex flex-wrap items-center gap-3">
 
     <!-- Date Range Filter -->
     <div class="relative min-w-[140px]">
@@ -911,7 +937,7 @@
     </div>
 
     <!-- Clear Filters -->
-    {#if filterDateRange !== "all" || filterSprint !== "all" || filterMember !== "all"}
+    {#if activeFilterCount > 0}
       <button
         type="button"
         class="px-3 py-1.5 text-sm rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-colors"
@@ -922,19 +948,21 @@
     {/if}
 
     <!-- Active filters count -->
-    {#if filterDateRange !== "all" || filterSprint !== "all" || filterMember !== "all"}
+    {#if activeFilterCount > 0}
       <span class="text-xs text-muted-foreground">
         ({filteredTasks().length} {$_("reports.tasks")})
       </span>
     {/if}
-  </div>
+    </div>
+    {/if}
+  </section>
 
   <div class="space-y-6 max-w-7xl">
     <!-- ============ OVERVIEW TAB ============ -->
     {#if activeTab === "overview"}
       <!-- Summary Cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <CheckCircle size={18} class="text-emerald-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.completionRate")}</span>
@@ -943,7 +971,7 @@
           <p class="text-xs text-muted-foreground mt-1">{overviewStats().completedTasks}/{overviewStats().totalTasks} {$_("reports.tasks")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <Target size={18} class="text-primary" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.avgVelocity")}</span>
@@ -952,7 +980,7 @@
           <p class="text-xs text-muted-foreground mt-1">{$_("reports.pointsPerSprint")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <Award size={18} class="text-amber-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.totalPoints")}</span>
@@ -961,7 +989,7 @@
           <p class="text-xs text-muted-foreground mt-1">{$_("reports.delivered")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <Clock size={18} class="text-violet-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.avgTime")}</span>
@@ -973,7 +1001,7 @@
 
       <!-- Velocity & Burndown -->
       <div class="grid md:grid-cols-2 gap-6">
-        <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <section class="border-b border-border pb-8">
           <div class="flex items-center gap-3 mb-4">
             <TrendingUp size={20} class="text-primary" />
             <div>
@@ -990,7 +1018,7 @@
           {/if}
         </section>
 
-        <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <section class="border-b border-border pb-8">
           <div class="flex items-center gap-3 mb-4">
             <TrendingDown size={20} class="text-primary" />
             <div>
@@ -1018,7 +1046,7 @@
 
       <!-- Spillover Report -->
       {@const spilloverData = getSpilloverData()}
-      <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <section class="border-b border-border pb-8">
         <div class="flex items-center gap-3 mb-4">
           <ArrowRightLeft size={20} class="text-amber-500" />
           <div>
@@ -1093,7 +1121,7 @@
 
     <!-- ============ MONTHLY TAB ============ -->
     {#if activeTab === "monthly"}
-      <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <section class="border-b border-border pb-8">
         <div class="flex items-center gap-3 mb-4">
           <Calendar size={20} class="text-primary" />
           <div>
@@ -1111,7 +1139,7 @@
         {@const lastMonth = monthlyData.completed[monthlyData.completed.length - 2] || 0}
         {@const trend = lastMonth > 0 ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : 0}
         <div class="grid md:grid-cols-3 gap-4">
-          <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div class="rounded-xl bg-muted/40 p-4">
             <div class="flex items-center justify-between mb-2">
               <span class="text-sm text-muted-foreground">{$_("reports.thisMonth")}</span>
               {#if trend !== 0}
@@ -1124,7 +1152,7 @@
             <p class="text-xs text-muted-foreground">{$_("reports.tasksCompleted")}</p>
           </div>
 
-          <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div class="rounded-xl bg-muted/40 p-4">
             <span class="text-sm text-muted-foreground">{$_("reports.avgMonthly")}</span>
             <p class="text-3xl font-bold text-foreground mt-2">
               {Math.round(monthlyData.completed.reduce((a, b) => a + b, 0) / 12)}
@@ -1132,7 +1160,7 @@
             <p class="text-xs text-muted-foreground">{$_("reports.tasksPerMonth")}</p>
           </div>
 
-          <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div class="rounded-xl bg-muted/40 p-4">
             <span class="text-sm text-muted-foreground">{$_("reports.bestMonth")}</span>
             <p class="text-3xl font-bold text-foreground mt-2">
               {Math.max(...monthlyData.completed)}
@@ -1147,7 +1175,7 @@
     {#if activeTab === "team"}
       {@const teamData = getTeamData()}
       {@const memberProductivity = getMemberProductivity()}
-      <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <section class="border-b border-border pb-8">
         <div class="flex items-center gap-3 mb-4">
           <Users size={20} class="text-primary" />
           <div>
@@ -1165,7 +1193,7 @@
       </section>
 
       <!-- Team Leaderboard -->
-      <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <div class="border-b border-border pb-8">
         <h3 class="text-lg font-semibold text-foreground mb-4">{$_("reports.leaderboard")}</h3>
         <div class="space-y-3">
           {#each teamData.labels.slice(0, 5) as member, i}
@@ -1186,7 +1214,7 @@
 
       <!-- Member Productivity Stats -->
       {#if memberProductivity.length > 0}
-        <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div class="border-b border-border pb-8">
           <div class="flex items-center gap-3 mb-4">
             <Target size={20} class="text-primary" />
             <div>
@@ -1247,7 +1275,7 @@
     <!-- ============ ANALYSIS TAB ============ -->
     {#if activeTab === "analysis"}
       <div class="grid md:grid-cols-2 gap-6">
-        <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <section class="border-b border-border pb-8">
           <div class="flex items-center gap-3 mb-4">
             <PieChart size={20} class="text-primary" />
             <div>
@@ -1258,7 +1286,7 @@
           <div class="h-64"><canvas bind:this={taskTypeCanvas}></canvas></div>
         </section>
 
-        <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <section class="border-b border-border pb-8">
           <div class="flex items-center gap-3 mb-4">
             <AlertCircle size={20} class="text-primary" />
             <div>
@@ -1275,7 +1303,7 @@
         {@const types = getTaskTypeData()}
         {@const priorities = getPriorityData()}
         {@const stats = overviewStats()}
-        <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div class="border-b border-border pb-8">
           <h3 class="text-lg font-semibold text-foreground mb-4">{$_("reports.insights")}</h3>
           <div class="grid md:grid-cols-2 gap-4">
           <div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
@@ -1335,7 +1363,7 @@
 
       <!-- Time Metrics -->
       <div class="grid md:grid-cols-4 gap-4">
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <Timer size={18} class="text-blue-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.leadTime")}</span>
@@ -1344,7 +1372,7 @@
           <p class="text-xs text-muted-foreground mt-1">{$_("reports.daysAvg")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <Clock size={18} class="text-violet-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.cycleTime")}</span>
@@ -1353,7 +1381,7 @@
           <p class="text-xs text-muted-foreground mt-1">{$_("reports.hoursAvg")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <TrendingUp size={18} class="text-emerald-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.throughput")}</span>
@@ -1362,7 +1390,7 @@
           <p class="text-xs text-muted-foreground mt-1">{$_("reports.tasksPerWeek")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <AlertCircle size={18} class="text-amber-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.taskAge")}</span>
@@ -1374,7 +1402,7 @@
 
       <!-- WIP & Health Metrics -->
       <div class="grid md:grid-cols-3 gap-4">
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <BarChart2 size={18} class="text-primary" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.wip")}</span>
@@ -1383,7 +1411,7 @@
           <p class="text-xs text-muted-foreground mt-1">{metrics.wipPoints} {$_("reports.points")} {$_("reports.inProgress")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <AlertCircle size={18} class="text-rose-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.blocked")}</span>
@@ -1392,7 +1420,7 @@
           <p class="text-xs text-muted-foreground mt-1">{$_("reports.tasksBlocked")}</p>
         </div>
 
-        <div class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div class="rounded-xl bg-muted/40 p-4">
           <div class="flex items-center gap-2 mb-2">
             <GitCompare size={18} class="text-orange-500" />
             <span class="text-xs text-muted-foreground uppercase tracking-wide">{$_("reports.bugRatio")}</span>
@@ -1404,7 +1432,7 @@
 
       <!-- Sprint Commitment (Agile only) -->
       {#if methodology === "agile" && activeSprint}
-        <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div class="border-b border-border pb-8">
           <div class="flex items-center gap-3 mb-4">
             <Target size={20} class="text-primary" />
             <div>
@@ -1439,7 +1467,7 @@
       {/if}
 
       <!-- Work Distribution -->
-      <div class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <div class="border-b border-border pb-8">
         <div class="flex items-center gap-3 mb-4">
           <Users size={20} class="text-primary" />
           <div>
