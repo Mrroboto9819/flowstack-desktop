@@ -478,6 +478,409 @@ const TOOLS = {
       };
     },
   },
+
+  // --- workspace context ---------------------------------------------------
+
+  describe_workspace: {
+    description:
+      "READ THIS FIRST. Explains how this FlowStack board works and returns its current configuration: methodology, board columns, sprints, team, tags and settings. Call it before making changes so edits match how the board is actually set up.",
+    schema: { type: "object", properties: {} },
+    run() {
+      requireAccess("read");
+      const { data } = store.read();
+      const s = data.settings || {};
+      const active = data.sprints.find((x) => x.status === "active");
+
+      return {
+        howItWorks: {
+          sprints:
+            "A sprint is planned, active or closed. Exactly ONE sprint may be active at a time - activating another demotes the current one to planned. Completing a sprint closes it and moves its unfinished tasks to the backlog, so nothing is lost.",
+          backlog:
+            "The backlog is simply every task with no sprintId. Moving a task to the backlog means clearing its sprint, not changing its status.",
+          statuses:
+            "Statuses are the board columns. They are matched by NAME, not by id, because they are configuration shared across installs. BACKLOG and DONE are system columns and cannot be deleted. A task whose status matches no column falls back to BACKLOG.",
+          relationships:
+            "Tasks link to a sprint, a user and tags by UUID (sprintId, assigneeId, tagIds). The readable mirrors (asign, tags) are kept in sync automatically - set either side and both end up correct. A write that would leave a reference pointing at a record that does not exist is refused.",
+          points:
+            "Story points are stored as strings but always compared as numbers. Velocity and totals count only tasks in the DONE column.",
+          methodology:
+            "The methodology setting controls which views the app shows. 'agile' shows sprints and backlog, 'kanban' shows the board and backlog without sprints, 'waterfall' shows tasks only.",
+        },
+        configuration: {
+          methodology: s.methodology || "agile",
+          autoFinishSprints: Boolean(s.autoFinishSprints),
+          showScrollButtons: s.showScrollButtons !== false,
+          mcp: s.mcp || { enabled: true, allowWrite: false, allowDelete: false },
+        },
+        board: {
+          columns: (data.statuses || []).map((x) => ({
+            status: x.status,
+            visible: x.show !== false,
+            system: Boolean(x.isSystem),
+          })),
+        },
+        sprints: data.sprints.map((x) => ({
+          id: x.id,
+          name: x.name,
+          status: x.status,
+          start: x.start,
+          end: x.end,
+          tasks: data.tasks.filter((t) => t.sprintId === x.id).length,
+        })),
+        activeSprint: active ? { id: active.id, name: active.name, goal: active.goal } : null,
+        team: data.users.map((u) => ({
+          id: u.id,
+          name: `${u.name || ""} ${u.lastname || ""}`.trim(),
+          rol: u.rol,
+        })),
+        tags: data.tags.map((t) => t.name),
+        totals: {
+          tasks: data.tasks.length,
+          backlog: data.tasks.filter((t) => !t.sprintId).length,
+        },
+      };
+    },
+  },
+
+  // --- sprints -------------------------------------------------------------
+
+  update_sprint: {
+    description: "Update a sprint's name, goal or dates. Use activate_sprint / complete_sprint to change its state.",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Sprint name or id" },
+        name: { type: "string" },
+        goal: { type: "string" },
+        start: { type: "string" },
+        end: { type: "string" },
+      },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("write");
+      const { snapshot } = store.mutate((data) => {
+        const sprint = findSprint(data, args.id);
+        if (!sprint) throw new Error(`no sprint matching "${args.id}"`);
+        for (const f of ["name", "goal", "start", "end"]) {
+          if (args[f] !== undefined) sprint[f] = args[f];
+        }
+        sprint.updated = new Date().toISOString();
+        return data;
+      });
+      return { updated: snapshot.data.sprints.find((s) => s.name === (args.name || args.id)) || args.id };
+    },
+  },
+
+  activate_sprint: {
+    description:
+      "Make a sprint active. Any other active sprint is demoted to planned, because only one can be active.",
+    schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run(args) {
+      requireAccess("write");
+      let demoted = null;
+      store.mutate((data) => {
+        const sprint = findSprint(data, args.id);
+        if (!sprint) throw new Error(`no sprint matching "${args.id}"`);
+        data.sprints = data.sprints.map((s) => {
+          if (s.id === sprint.id) return { ...s, status: "active", updated: new Date().toISOString() };
+          if (s.status === "active") {
+            demoted = s.name;
+            return { ...s, status: "planned" };
+          }
+          return s;
+        });
+        return data;
+      });
+      return { activated: args.id, demoted };
+    },
+  },
+
+  complete_sprint: {
+    description:
+      "Close a sprint. Unfinished tasks are moved to the backlog rather than being left in a closed sprint.",
+    schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run(args) {
+      requireAccess("write");
+      let moved = 0;
+      store.mutate((data) => {
+        const sprint = findSprint(data, args.id);
+        if (!sprint) throw new Error(`no sprint matching "${args.id}"`);
+        data.tasks = data.tasks.map((t) => {
+          if (t.sprintId !== sprint.id || t.status === "DONE") return t;
+          moved++;
+          return { ...t, sprintId: null, status: "BACKLOG" };
+        });
+        data.sprints = data.sprints.map((s) =>
+          s.id === sprint.id ? { ...s, status: "closed", updated: new Date().toISOString() } : s
+        );
+        return data;
+      });
+      return { completed: args.id, unfinishedMovedToBacklog: moved };
+    },
+  },
+
+  move_task: {
+    description: "Move a task to a different sprint and/or board column in one step.",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        sprint: { type: "string", description: "Sprint name or id, or 'backlog'" },
+        status: { type: "string" },
+      },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("write");
+      store.mutate((data) => {
+        const task = data.tasks.find((t) => t.id === args.id);
+        if (!task) throw new Error(`no task with id ${args.id}`);
+
+        if (args.sprint !== undefined) {
+          if (args.sprint === "backlog") task.sprintId = null;
+          else {
+            const s = findSprint(data, args.sprint);
+            if (!s) throw new Error(`no sprint matching "${args.sprint}"`);
+            task.sprintId = s.id;
+          }
+        }
+        if (args.status !== undefined) {
+          const known = (data.statuses || []).some((s) => s.status === args.status);
+          if (!known) throw new Error(`"${args.status}" is not a board column`);
+          task.status = args.status;
+        }
+        task.updated = new Date().toISOString();
+        return data;
+      });
+      return { moved: args.id, sprint: args.sprint, status: args.status };
+    },
+  },
+
+  // --- team ----------------------------------------------------------------
+
+  create_user: {
+    description: "Add a team member. Their UUID is what tasks reference as assigneeId.",
+    schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        lastname: { type: "string" },
+        rol: { type: "string", description: "e.g. Developer, Designer, QA Engineer" },
+        email: { type: "string" },
+      },
+      required: ["name"],
+    },
+    run(args) {
+      requireAccess("write");
+      const { snapshot } = store.mutate((data) => {
+        if (!args.name?.trim()) throw new Error("name is required");
+        const now = new Date().toISOString();
+        data.users.push({
+          id: newId(),
+          name: args.name.trim(),
+          lastname: args.lastname || "",
+          rol: args.rol || "Developer",
+          email: args.email || "",
+          origin: "mcp",
+          created: now,
+          updated: now,
+        });
+        return data;
+      });
+      return { created: snapshot.data.users.at(-1) };
+    },
+  },
+
+  update_user: {
+    description: "Update a team member. Renaming keeps every task assignment, because tasks link by UUID.",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "User name or id" },
+        name: { type: "string" },
+        lastname: { type: "string" },
+        rol: { type: "string" },
+        email: { type: "string" },
+      },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("write");
+      store.mutate((data) => {
+        const user = findUser(data, args.id);
+        if (!user) throw new Error(`no user matching "${args.id}"`);
+        for (const f of ["name", "lastname", "rol", "email"]) {
+          if (args[f] !== undefined) user[f] = args[f];
+        }
+        user.updated = new Date().toISOString();
+
+        // Keep the readable mirror on their tasks in step with the new name
+        const full = `${user.name || ""} ${user.lastname || ""}`.trim();
+        data.tasks = data.tasks.map((t) => (t.assigneeId === user.id ? { ...t, asign: full } : t));
+        return data;
+      });
+      return { updated: args.id };
+    },
+  },
+
+  delete_user: {
+    description:
+      "Remove a team member. Their tasks are unassigned rather than left pointing at a user that no longer exists.",
+    schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run(args) {
+      requireAccess("delete");
+      let unassigned = 0;
+      const { backup } = store.mutate((data) => {
+        const user = findUser(data, args.id);
+        if (!user) throw new Error(`no user matching "${args.id}"`);
+        data.users = data.users.filter((u) => u.id !== user.id);
+        data.tasks = data.tasks.map((t) => {
+          if (t.assigneeId !== user.id) return t;
+          unassigned++;
+          return { ...t, assigneeId: null, asign: "" };
+        });
+        return data;
+      });
+      return { deleted: args.id, tasksUnassigned: unassigned, backup };
+    },
+  },
+
+  // --- board columns -------------------------------------------------------
+
+  create_status: {
+    description: "Add a board column. Its id is its name, since statuses are matched by name across installs.",
+    schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Column name, e.g. QA" },
+        color: { type: "string", description: "Hex colour" },
+      },
+      required: ["status"],
+    },
+    run(args) {
+      requireAccess("write");
+      store.mutate((data) => {
+        const name = args.status?.trim();
+        if (!name) throw new Error("status is required");
+        if (data.statuses.some((s) => s.status === name)) throw new Error(`"${name}" already exists`);
+        const maxOrder = data.statuses.reduce((m, s) => Math.max(m, s.order ?? 0), -1);
+        data.statuses.push({
+          id: name,
+          status: name,
+          color: args.color || "#64748b",
+          show: true,
+          order: maxOrder + 1,
+          created: new Date().toISOString(),
+        });
+        return data;
+      });
+      return { created: args.status };
+    },
+  },
+
+  delete_status: {
+    description:
+      "Remove a board column. Its tasks move to BACKLOG. System columns (BACKLOG, DONE) cannot be removed.",
+    schema: { type: "object", properties: { status: { type: "string" } }, required: ["status"] },
+    run(args) {
+      requireAccess("delete");
+      let moved = 0;
+      const { backup } = store.mutate((data) => {
+        const col = data.statuses.find((s) => s.status === args.status);
+        if (!col) throw new Error(`no column named "${args.status}"`);
+        if (col.isSystem || ["BACKLOG", "DONE"].includes(col.status)) {
+          throw new Error(`"${col.status}" is a system column and cannot be deleted`);
+        }
+        data.statuses = data.statuses.filter((s) => s.status !== args.status);
+        data.tasks = data.tasks.map((t) => {
+          if (t.status !== args.status) return t;
+          moved++;
+          return { ...t, status: "BACKLOG" };
+        });
+        return data;
+      });
+      return { deleted: args.status, tasksMovedToBacklog: moved, backup };
+    },
+  },
+
+  // --- tags ----------------------------------------------------------------
+
+  list_tags: {
+    description: "Tags with how many tasks use each one.",
+    schema: { type: "object", properties: {} },
+    run() {
+      requireAccess("read");
+      const { data } = store.read();
+      return data.tags.map((t) => ({
+        id: t.id,
+        name: t.name,
+        tasks: data.tasks.filter((x) => (x.tagIds || []).includes(t.id)).length,
+      }));
+    },
+  },
+
+  delete_tag: {
+    description: "Delete a tag and remove it from every task that uses it.",
+    schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+    run(args) {
+      requireAccess("delete");
+      let affected = 0;
+      const { backup } = store.mutate((data) => {
+        const tag = data.tags.find((t) => (t.name || "").toLowerCase() === args.name.toLowerCase());
+        if (!tag) throw new Error(`no tag named "${args.name}"`);
+        data.tags = data.tags.filter((t) => t.id !== tag.id);
+        data.tasks = data.tasks.map((t) => {
+          if (!(t.tagIds || []).includes(tag.id)) return t;
+          affected++;
+          return {
+            ...t,
+            tagIds: t.tagIds.filter((id) => id !== tag.id),
+            tags: (t.tags || []).filter((n) => n.toLowerCase() !== args.name.toLowerCase()),
+          };
+        });
+        return data;
+      });
+      return { deleted: args.name, tasksAffected: affected, backup };
+    },
+  },
+
+  // --- settings ------------------------------------------------------------
+
+  get_settings: {
+    description: "Current app settings, including MCP permissions.",
+    schema: { type: "object", properties: {} },
+    run() {
+      requireAccess("read");
+      return store.read().data.settings || {};
+    },
+  },
+
+  update_settings: {
+    description:
+      "Change app settings. Methodology decides which views the app shows. MCP permissions are deliberately NOT changeable here - only the user can widen those, from the app.",
+    schema: {
+      type: "object",
+      properties: {
+        methodology: { type: "string", enum: ["agile", "kanban", "waterfall"] },
+        autoFinishSprints: { type: "boolean" },
+        showScrollButtons: { type: "boolean" },
+        theme: { type: "string", enum: ["light", "dark"] },
+      },
+    },
+    run(args) {
+      requireAccess("write");
+      const { snapshot } = store.mutate((data) => {
+        data.settings ??= {};
+        for (const f of ["methodology", "autoFinishSprints", "showScrollButtons", "theme"]) {
+          if (args[f] !== undefined) data.settings[f] = args[f];
+        }
+        // Never let the server widen its own permissions
+        return data;
+      });
+      return { settings: snapshot.data.settings };
+    },
+  },
 };
 
 const snapshot_revision = (s) => s.revision || 0;
@@ -512,6 +915,24 @@ rl.on("line", (line) => {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
         serverInfo: { name: "flowstack", version: "1.0.0" },
+        // Sent once at connection time, so the model has the domain model
+        // before it reaches for a tool. describe_workspace returns the same
+        // rules plus the board's live configuration.
+        instructions: [
+          "FlowStack is a local sprint and task board. Call describe_workspace first: it returns these rules together with the board's actual configuration (methodology, columns, sprints, team, tags).",
+          "",
+          "Sprints: planned -> active -> closed. Exactly ONE sprint may be active; activating another demotes the current one. Completing a sprint moves its unfinished tasks to the backlog so nothing is stranded.",
+          "",
+          "Backlog: any task with no sprintId. To move something to the backlog, clear its sprint - do not just change its status.",
+          "",
+          "Columns: statuses are matched by NAME, not id, because they are configuration shared across installs. BACKLOG and DONE are system columns and cannot be deleted.",
+          "",
+          "Relationships are UUIDs (sprintId, assigneeId, tagIds); the readable mirrors (asign, tags) stay in sync automatically. You may pass a sprint or user by name and it will be resolved. Any write that would leave a reference pointing at a missing record is refused.",
+          "",
+          "Permissions live in the app's settings: reading may be allowed while writing and deleting are not. If a tool is refused, tell the user to enable it in Settings > MCP access rather than trying to work around it.",
+          "",
+          "Deletions are recoverable - each one backs up the previous state first - but still confirm with the user before deleting anything you were not explicitly asked to.",
+        ].join("\n"),
       });
     }
 
