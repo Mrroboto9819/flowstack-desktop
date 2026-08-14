@@ -1,6 +1,6 @@
 <script>
   import { Plus, Pencil, Target, TrendingUp, Eye, Layers3 } from "$lib/icons";
-  import { taskStore, sprintStore } from "../../lib/stores/index.js";
+  import { taskStore, sprintStore, projectStore } from "../../lib/stores/index.js";
   import TaskModal from "../../lib/components/TaskModal.svelte";
   import TaskDetailModal from "../../lib/components/TaskDetailModal.svelte";
   import { toastStore } from "../../lib/toastStore.svelte.js";
@@ -9,8 +9,8 @@
   import Skeleton from "../../lib/components/Skeleton.svelte";
   import { appState } from "../../lib/stores/app.svelte.js";
 
-  let allTasks = $derived(taskStore.tasks);
-  let sprints = $derived(sprintStore.sprints);
+  let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
+  let sprints = $derived(sprintStore.sprints.filter((s) => projectStore.inScope(s)));
 
   // Modal state
   let taskModalOpen = $state(false);

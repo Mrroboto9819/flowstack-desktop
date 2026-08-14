@@ -5,7 +5,12 @@
    * app and decides what new sprints and tasks belong to.
    */
   import { _ } from "svelte-i18n";
-  import { projectStore, sprintStore, taskStore } from "$lib/stores/index.js";
+  import {
+    projectStore,
+    sprintStore,
+    taskStore,
+    adoptUnassignedInto,
+  } from "$lib/stores/index.js";
   import { Plus, Pencil, Trash2, Check, X, Upload } from "$lib/icons";
   import ConfirmModal from "$lib/components/ConfirmModal.svelte";
   import { toastStore } from "$lib/toastStore.svelte.js";
@@ -76,9 +81,23 @@
     if (editingId) {
       projectStore.update(editingId, { ...form, name });
     } else {
+      const wasFirst = projects.length === 0; // checked before create() runs
       const created = projectStore.create({ ...form, name });
       // A brand new project is almost always what you want to work in next
       projectStore.setCurrent(created.id);
+
+      // Nothing should sit outside every project and become unreachable in the
+      // filtered views, so the first project sweeps up anything unassigned
+      if (wasFirst) {
+        const adopted = adoptUnassignedInto(created.id);
+        if (adopted.tasks || adopted.sprints) {
+          toastStore.info(
+            $_("projects.adopted", {
+              values: { tasks: adopted.tasks, sprints: adopted.sprints },
+            })
+          );
+        }
+      }
     }
     cancel();
   }

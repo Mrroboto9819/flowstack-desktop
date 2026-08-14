@@ -22,7 +22,7 @@
     ChevronDown,
     SlidersHorizontal,
   } from "$lib/icons";
-  import { taskStore, userStore, statusStore, settingsStore, sprintStore } from "../../lib/stores/index.js";
+  import { taskStore, userStore, statusStore, settingsStore, sprintStore, projectStore } from "../../lib/stores/index.js";
   import TaskModal from "../../lib/components/TaskModal.svelte";
   import TaskDetailModal from "../../lib/components/TaskDetailModal.svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
@@ -40,7 +40,7 @@
   import { formatBoardSummaryForClipboard, copyToClipboard } from "../../lib/utils/clipboard.js";
   import { exportTasksToFile, importTasksWithDialog } from "../../lib/utils/taskTransfer.js";
 
-  let allTasks = $derived(taskStore.tasks);
+  let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
   let users = $derived(userStore.users);
   let visibleStatuses = $derived(statusStore.visible);
   let settings = $derived(settingsStore.settings);
@@ -53,7 +53,7 @@
   ]);
 
   // Sprint filter options for Select component
-  let sprints = $derived(sprintStore.sprints);
+  let sprints = $derived(sprintStore.sprints.filter((s) => projectStore.inScope(s)));
   let sprintFilterOptions = $derived([
     { value: "all", label: $_("common.all") },
     { value: "backlog", label: $_("tasks.backlog") },

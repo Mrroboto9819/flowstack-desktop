@@ -19,6 +19,7 @@
     taskStore,
     statusStore,
     settingsStore,
+    projectStore,
   } from "../../lib/stores/index.js";
   import SprintModal from "../../lib/components/SprintModal.svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
@@ -30,8 +31,8 @@
   import { marked } from "marked";
   import { _ } from "$lib/i18n";
 
-  let sprints = $derived(sprintStore.sprints);
-  let allTasks = $derived(taskStore.tasks);
+  let sprints = $derived(sprintStore.sprints.filter((s) => projectStore.inScope(s)));
+  let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
   let visibleStatuses = $derived(statusStore.visible);
 
   // Board state for the active sprint

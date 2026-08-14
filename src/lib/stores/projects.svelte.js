@@ -79,13 +79,24 @@ export const projectStore = {
   },
 
   /**
-   * True when the record belongs to the current scope. Records with no project
-   * stay visible in "all", so nothing can become unreachable through filtering.
+   * True when the record belongs to the current scope.
+   *
+   * Handles both shapes: tasks and sprints live in exactly one project
+   * (`projectId`), while people are usually on several (`projectIds`) - a
+   * single id there would mean duplicating a person per project.
+   *
+   * Records carrying no project at all stay visible, so nothing can become
+   * unreachable through filtering.
+   *
    * @param {any} record
    */
   inScope(record) {
-    if (!currentProjectId) return true;
-    return record?.projectId === currentProjectId;
+    if (!currentProjectId || !record) return true;
+
+    if (Array.isArray(record.projectIds)) {
+      return record.projectIds.length === 0 || record.projectIds.includes(currentProjectId);
+    }
+    return !record.projectId || record.projectId === currentProjectId;
   },
 
   hydrate() {

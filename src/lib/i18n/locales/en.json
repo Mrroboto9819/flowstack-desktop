@@ -16,15 +16,17 @@
     "no": "No"
   },
   "nav": {
-    "sprint": "Sprint",
-    "tasks": "Tasks",
-    "backlog": "Backlog",
-    "sprints": "Sprints",
-    "team": "Team",
-    "reports": "Reports",
-    "boardSettings": "Board Settings",
     "about": "About",
-    "projects": "Projects"
+    "backlog": "Backlog",
+    "boardSettings": "Board Settings",
+    "groupGlobal": "Workspace",
+    "groupProject": "In {name}",
+    "projects": "Projects",
+    "reports": "Reports",
+    "sprint": "Sprint",
+    "sprints": "Sprints",
+    "tasks": "Tasks",
+    "team": "Team"
   },
   "sidebar": {
     "expandSidebar": "Expand sidebar",
@@ -516,6 +518,7 @@
     "madeWithEnd": "in Mexico"
   },
   "projects": {
+    "adopted": "Adopted {tasks} existing task(s) and {sprints} sprint(s) into this project",
     "color": "Colour",
     "create": "Create project",
     "current": "Current",

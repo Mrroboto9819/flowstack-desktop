@@ -226,6 +226,20 @@ function migrateDefaultProject() {
     );
   }
 
+  // People carry a membership list rather than one id - the same person is
+  // normally on several projects
+  const users = read(STORAGE_KEYS.users);
+  if (Array.isArray(users) && users.length > 0) {
+    write(
+      STORAGE_KEYS.users,
+      users.map((user) =>
+        user && typeof user === "object" && !Array.isArray(user.projectIds)
+          ? { ...user, projectIds: [project.id] }
+          : user
+      )
+    );
+  }
+
   return true;
 }
 
@@ -288,6 +302,37 @@ export function hydrateAllStores(options = {}) {
   settingsStore.hydrate();
 
   if (!options.silent) toastStore.info("Data loaded", 1400);
+}
+
+/**
+ * Attach every task and sprint that has no project to the given one.
+ *
+ * Records only end up unassigned two ways: data that predates projects, or a
+ * project being deleted (which detaches rather than orphans). Either way the
+ * first project created afterwards should adopt them, so nothing is stranded
+ * outside every scope and therefore invisible in the filtered views.
+ *
+ * Lives here rather than in projectStore because the task store now imports
+ * projectStore - reaching back the other way would close the loop.
+ *
+ * @param {string} projectId
+ * @returns {{tasks: number, sprints: number}}
+ */
+export function adoptUnassignedInto(projectId) {
+  if (!projectId) return { tasks: 0, sprints: 0 };
+
+  const sprints = sprintStore.sprints.filter((s) => !s.projectId);
+  sprints.forEach((s) => sprintStore.updateQuiet(s.id, { projectId }));
+
+  const tasks = taskStore.tasks.filter((t) => !t.projectId);
+  tasks.forEach((t) => taskStore.updateQuiet(t.id, { projectId }));
+
+  const members = userStore.users.filter(
+    (u) => !Array.isArray(u.projectIds) || u.projectIds.length === 0
+  );
+  members.forEach((u) => userStore.setProjectMembership(u.id, projectId, true));
+
+  return { tasks: tasks.length, sprints: sprints.length, members: members.length };
 }
 
 /**

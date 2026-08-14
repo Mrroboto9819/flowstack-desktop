@@ -4,6 +4,7 @@
 
 import { toastStore } from "../toastStore.svelte.js";
 import { load as loadSlice, save as saveSlice } from "../persistence.js";
+import { projectStore } from "./projects.svelte.js";
 
 const STORAGE_KEY = "taskflow_users";
 
@@ -55,6 +56,9 @@ export const userStore = {
       id: newId(),
       created: now,
       updated: now,
+      // People are on many projects, so membership is a list. A new member
+      // joins whatever project is currently in scope.
+      projectIds: projectStore.currentId ? [projectStore.currentId] : [],
       ...userData,
     };
 
@@ -62,6 +66,20 @@ export const userStore = {
     saveUsers();
     toastStore.success("Team member added");
     return user;
+  },
+
+  /** Add or remove this member from a project. */
+  setProjectMembership(id, projectId, isMember) {
+    const now = new Date().toISOString();
+    users = users.map((user) => {
+      if (user.id !== id) return user;
+      const current = Array.isArray(user.projectIds) ? user.projectIds : [];
+      const next = isMember
+        ? [...new Set([...current, projectId])]
+        : current.filter((p) => p !== projectId);
+      return { ...user, projectIds: next, updated: now };
+    });
+    saveUsers();
   },
 
   update(id, updates) {

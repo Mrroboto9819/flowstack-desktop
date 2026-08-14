@@ -5,6 +5,7 @@
 import { toastStore } from "../toastStore.svelte.js";
 import { tagStore } from "./tags.svelte.js";
 import { userStore } from "./users.svelte.js";
+import { projectStore } from "./projects.svelte.js";
 import { load as loadSlice, save as saveSlice } from "../persistence.js";
 
 const STORAGE_KEY = "taskflow_tasks";
@@ -259,6 +260,9 @@ export const taskStore = {
     }
 
     const task = {
+      // The sidebar switcher owns the relationship: anything created belongs
+      // to the project currently in scope unless the caller says otherwise
+      projectId: projectStore.currentId || null,
       ...taskData,
       // These are owned by the store, so they come last - a caller passing an
       // `id` must never overwrite the generated UUID (that would collide with

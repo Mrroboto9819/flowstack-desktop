@@ -18,6 +18,9 @@
   import { appState } from "../../lib/stores/app.svelte.js";
 
   let users = $derived(userStore.users);
+  // The roster is deliberately global: people work across projects, so scoping
+  // this view would hide colleagues rather than clarify anything. Membership is
+  // still recorded on each person (projectIds) for reporting.
   let allTasks = $derived(taskStore.tasks);
 
   // Modal state

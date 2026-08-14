@@ -5,6 +5,7 @@
 import { toastStore } from "../toastStore.svelte.js";
 import { taskStore } from "./tasks.svelte.js";
 import { settingsStore } from "./settings.svelte.js";
+import { projectStore } from "./projects.svelte.js";
 import { load as loadSlice, save as saveSlice } from "../persistence.js";
 
 const STORAGE_KEY = "taskflow_sprints";
@@ -55,6 +56,8 @@ export const sprintStore = {
     const now = new Date().toISOString();
     const sprint = {
       status: "planned",
+      // Inherits the project currently in scope - see taskStore.create()
+      projectId: projectStore.currentId || null,
       ...sprintData,
       // Store-owned fields come last so a caller cannot overwrite the generated
       // UUID and collide with an existing sprint

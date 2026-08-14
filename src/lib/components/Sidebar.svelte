@@ -22,23 +22,29 @@
   import { goto } from "$app/navigation";
   import { currentUserStore, settingsStore } from "../stores/index.js";
   import ProjectSwitcher from "./ProjectSwitcher.svelte";
+  import { projectStore } from "../stores/index.js";
   import { _ } from "$lib/i18n";
 
   // Get methodology from settings
   let methodology = $derived(settingsStore.settings.methodology || "agile");
 
   // Define all nav items with methodology visibility
+  // `group` says whether a view is scoped by the sidebar project switcher.
+  // Kept as one flat, ordered list rather than nested arrays so the index that
+  // labelElements binds against stays stable - the headers are rendered where
+  // the group changes.
+  const ALL = ["agile", "kanban", "waterfall"];
   const allNavItems = [
     // /sprint was merged into /sprints - one page now holds the active sprint
     // board and the sprint list, so there is a single nav entry for it
-    { href: "/projects", labelKey: "nav.projects", icon: Briefcase, methodologies: ["agile", "kanban", "waterfall"] },
-    { href: "/sprints", labelKey: "nav.sprints", icon: KanbanSquare, methodologies: ["agile"] },
-    { href: "/tasks", labelKey: "nav.tasks", icon: Clipboard, methodologies: ["agile", "kanban", "waterfall"] },
-    { href: "/backlog", labelKey: "nav.backlog", icon: Layers3, methodologies: ["agile", "kanban"] },
-    { href: "/team", labelKey: "nav.team", icon: Users, methodologies: ["agile", "kanban", "waterfall"] },
-    { href: "/reports", labelKey: "nav.reports", icon: BarChart3, methodologies: ["agile", "kanban", "waterfall"] },
-    { href: "/settings", labelKey: "nav.boardSettings", icon: Settings, methodologies: ["agile", "kanban", "waterfall"] },
-    { href: "/about", labelKey: "nav.about", icon: Info, methodologies: ["agile", "kanban", "waterfall"] },
+    { href: "/sprints", labelKey: "nav.sprints", icon: KanbanSquare, methodologies: ["agile"], group: "project" },
+    { href: "/tasks", labelKey: "nav.tasks", icon: Clipboard, methodologies: ALL, group: "project" },
+    { href: "/backlog", labelKey: "nav.backlog", icon: Layers3, methodologies: ["agile", "kanban"], group: "project" },
+    { href: "/projects", labelKey: "nav.projects", icon: Briefcase, methodologies: ALL, group: "global" },
+    { href: "/team", labelKey: "nav.team", icon: Users, methodologies: ALL, group: "global" },
+    { href: "/reports", labelKey: "nav.reports", icon: BarChart3, methodologies: ALL, group: "global" },
+    { href: "/settings", labelKey: "nav.boardSettings", icon: Settings, methodologies: ALL, group: "global" },
+    { href: "/about", labelKey: "nav.about", icon: Info, methodologies: ALL, group: "global" },
   ];
 
   // Filter nav items based on current methodology
@@ -284,6 +290,18 @@
     {#each navItems as item, index}
       {@const isActive = $page.url.pathname === item.href}
       {@const Icon = item.icon}
+      {#if !isCollapsed && item.group !== navItems[index - 1]?.group}
+        <p
+          class="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground {index ===
+          0
+            ? ''
+            : 'pt-4'}"
+        >
+          {item.group === "project"
+            ? $_("nav.groupProject", { values: { name: projectStore.current?.name || "" } })
+            : $_("nav.groupGlobal")}
+        </p>
+      {/if}
       <a
         href={item.href}
         class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors group relative {isActive
