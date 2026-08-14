@@ -50,6 +50,7 @@
   import { formatBoardSummaryForClipboard, copyToClipboard } from "../../lib/utils/clipboard.js";
   import { exportTasksToFile, importTasksWithDialog } from "../../lib/utils/taskTransfer.js";
   import { fadeIn, staggerChildren } from "$lib/actions/animate.js";
+  import StandardSwitch from "../../lib/StandardSwitch.svelte";
 
   let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
   let users = $derived(userStore.users);
@@ -95,7 +96,7 @@
   // install would look empty.
   let filterAssignee = $state(userStore.currentMember?.id || "all");
   // Archived tasks stay in their column and keep their status - they are just
-  // hidden. This toggle brings them back into view without changing anything.
+  // hidden until this is switched on.
   let showArchived = $state(false);
   let filterFrom = $state("");
   let filterTo = $state("");
@@ -431,15 +432,14 @@
 
     {#if filtersOpen}
       <div class="grid gap-3 sm:grid-cols-2 {methodology === 'agile' ? 'xl:grid-cols-6' : 'xl:grid-cols-5'}">
-        <div class="flex items-end">
-          <label class="flex cursor-pointer items-center gap-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <input
-              type="checkbox"
-              bind:checked={showArchived}
-              class="h-4 w-4 rounded border-input accent-primary"
-            />
-            {$_("tasks.showArchived")}
-          </label>
+        <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {$_("tasks.filterArchived")}
+          <div class="mt-2 flex h-9 items-center gap-2">
+            <StandardSwitch bind:checked={showArchived} />
+            <span class="text-[11px] normal-case text-muted-foreground">
+              {showArchived ? $_("tasks.archivedShown") : $_("tasks.archivedHidden")}
+            </span>
+          </div>
         </div>
 
         <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
