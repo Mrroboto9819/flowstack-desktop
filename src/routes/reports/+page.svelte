@@ -18,6 +18,7 @@
     BarChart2,
     ArrowRightLeft,
     Undo2,
+    ChevronDown,
   } from "$lib/icons";
   import { onMount, onDestroy } from "svelte";
   import { Chart, registerables } from "chart.js";

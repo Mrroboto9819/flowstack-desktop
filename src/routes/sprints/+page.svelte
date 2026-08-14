@@ -30,6 +30,7 @@
   import { toastStore } from "../../lib/toastStore.svelte.js";
   import { marked } from "marked";
   import { _ } from "$lib/i18n";
+  import { fadeIn } from "$lib/actions/animate.js";
 
   let sprints = $derived(sprintStore.sprints.filter((s) => projectStore.inScope(s)));
   let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
@@ -449,12 +450,19 @@
                   >
                     {#each getBoardTasksDnd(statusItem.status) as task (task.id)}
                       {@const pc = getPriorityColor(task.priority || "medium")}
+                      {@const subtasksAllDone =
+                        Array.isArray(task.subtasks) &&
+                        task.subtasks.length > 0 &&
+                        task.subtasks.every((st) => st.completed)}
                       <article
                         animate:flip={{ duration: flipDurationMs }}
+                        use:fadeIn
                         class={`group flex cursor-grab flex-col rounded-xl border bg-card p-3 transition-colors active:scale-[0.99] ${
                           task.blocked
                             ? "border-rose-500/40 bg-rose-500/5"
-                            : "border-border hover:border-primary"
+                            : subtasksAllDone
+                              ? "task-card--complete border-emerald-500/50 bg-emerald-500/5"
+                              : "border-border hover:border-primary"
                         }`}
                       >
                         <button
