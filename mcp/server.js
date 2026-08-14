@@ -212,6 +212,12 @@ const TOOLS = {
           type: "string",
           description: "Project name, id or short prefix. Omit for every project.",
         },
+        archived: {
+          type: "string",
+          enum: ["exclude", "only", "include"],
+          description:
+            "Archived tasks are hidden on the board. 'exclude' (default) matches what the user sees, 'only' lists just the archived ones, 'include' returns both.",
+        },
         assignee: { type: "string", description: "User name or id" },
         tag: { type: "string" },
         blocked: { type: "boolean" },
@@ -224,6 +230,9 @@ const TOOLS = {
       requireAccess("read");
       const { data } = store.read();
       let rows = data.tasks;
+      // Mirror the board: archived work is out of sight unless asked for
+      if (args.archived === "only") rows = rows.filter((t) => t.archived);
+      else if (args.archived !== "include") rows = rows.filter((t) => !t.archived);
       if (args.project) {
         const project = findProject(data, args.project);
         if (!project) throw new Error(`no project matching "${args.project}"`);
@@ -814,8 +823,9 @@ const TOOLS = {
           tasks: data.tasks.filter((t) => t.projectId === p.id).length,
         })),
         totals: {
-          tasks: data.tasks.length,
-          backlog: data.tasks.filter((t) => !t.sprintId).length,
+          tasks: data.tasks.filter((t) => !t.archived).length,
+          archived: data.tasks.filter((t) => t.archived).length,
+          backlog: data.tasks.filter((t) => !t.sprintId && !t.archived).length,
           unassignedToProject: data.tasks.filter((t) => !t.projectId).length,
         },
       };
@@ -984,6 +994,7 @@ const TOOLS = {
         lastname: { type: "string" },
         rol: { type: "string" },
         email: { type: "string" },
+        color: { type: "string", description: "Avatar colour as hex, e.g. #2dd4bf" },
       },
       required: ["id"],
     },
@@ -992,7 +1003,7 @@ const TOOLS = {
       store.mutate((data) => {
         const user = findUser(data, args.id);
         if (!user) throw new Error(`no user matching "${args.id}"`);
-        for (const f of ["name", "lastname", "rol", "email"]) {
+        for (const f of ["name", "lastname", "rol", "email", "color"]) {
           if (args[f] !== undefined) user[f] = args[f];
         }
         user.updated = new Date().toISOString();
@@ -1003,6 +1014,46 @@ const TOOLS = {
         return data;
       });
       return { updated: args.id };
+    },
+  },
+
+  archive_task: {
+    description:
+      "Archive a task, or restore one. Archiving hides it from the board WITHOUT changing its status or column, so restoring puts it back exactly where it was and reports still see its real state. Prefer this over deleting work that is simply finished with.",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Task id or short prefix" },
+        archived: {
+          type: "boolean",
+          description: "true to archive, false to restore. Defaults to true.",
+        },
+      },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("write");
+      let result = null;
+
+      store.mutate((data) => {
+        const task = findTask(data, args.id);
+        if (!task) throw new Error(`no task with id ${args.id}`);
+
+        const archived = args.archived === undefined ? true : Boolean(args.archived);
+        const now = new Date().toISOString();
+        task.archived = archived;
+        task.archivedAt = archived ? now : null;
+        task.updated = now;
+
+        result = {
+          [archived ? "archived" : "restored"]: task.title,
+          status: task.status,
+          note: "status unchanged",
+        };
+        return data;
+      });
+
+      return result;
     },
   },
 
@@ -1595,6 +1646,8 @@ rl.on("line", (line) => {
           "Projects: the top of the hierarchy. Sprints and tasks each belong to exactly one, via projectId. The app works in one project at a time and marks it isActive - tasks and sprints you create join it automatically, so you rarely set projectId yourself. A record with no project is INVISIBLE in the app's project-scoped views, so never clear it. See list_projects.",
           "",
           "Sprints: planned -> active -> closed. Exactly ONE sprint may be active; activating another demotes the current one. Completing a sprint moves its unfinished tasks to the backlog so nothing is stranded.",
+          "",
+          "Archived: a task can be archived, which hides it from the board WITHOUT changing its status or column. list_tasks excludes archived tasks by default, matching what the user sees; pass archived:'only' or 'include' to reach them. Archive rather than delete when work is simply finished with - see archive_task.",
           "",
           "Backlog: any task with no sprintId. To move something to the backlog, clear its sprint - do not just change its status.",
           "",
