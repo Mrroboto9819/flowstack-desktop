@@ -134,7 +134,16 @@ export async function initPersistence(options = {}) {
     // First run on this machine: adopt whatever localStorage already holds
     cache = isBrowser() ? readLegacyLocalStorage() : {};
     migrated = hasContent(cache);
-    await flushNow();
+    try {
+      await flushNow();
+    } catch (error) {
+      // Cannot write to the app data dir (permissions, sandbox). Keep running
+      // on localStorage rather than failing to start - the user's data is
+      // still there, it just is not visible to the MCP server yet.
+      console.error("Could not write the snapshot, staying on localStorage:", error);
+      backend = "localStorage";
+      migrated = false;
+    }
   }
 
   await startWatching(fs, file);

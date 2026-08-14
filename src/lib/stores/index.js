@@ -365,8 +365,16 @@ async function processImportData(jsonText) {
       }
     }
 
-    // Must land on disk BEFORE the reload, or startup reads the old snapshot
-    await flushNow();
+    // Must land on disk BEFORE the reload, or startup reads the old snapshot.
+    // A failure here must not lose the import: the data is already in the
+    // localStorage cache, so warn and carry on rather than throwing away a
+    // perfectly good file because the write failed.
+    try {
+      await flushNow();
+    } catch (error) {
+      console.error("Imported data could not be written to disk:", error);
+      toastStore.warning("Imported, but could not save to disk - check file permissions");
+    }
 
     toastStore.success("Data imported successfully. Reloading...");
     setTimeout(() => window.location.reload(), 1500);
