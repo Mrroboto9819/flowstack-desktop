@@ -441,6 +441,8 @@
                       items: getBoardTasksDnd(statusItem.status),
                       flipDurationMs,
                       type: "sprint-task",
+                      dropTargetStyle: {},
+                      dropTargetClasses: ["dnd-column--active"]
                     }}
                     onconsider={(e) => handleTaskDndConsider(statusItem.status, e)}
                     onfinalize={(e) => handleTaskDndFinalize(statusItem.status, e)}

@@ -83,3 +83,31 @@ export function staggerChildren(node, options = {}) {
     },
   };
 }
+
+/**
+ * Fade an element in without touching transform.
+ *
+ * The safe choice for anything inside a `dndzone`: svelte-dnd-action writes
+ * `transform` on those elements while dragging, so an entrance that also
+ * animates transform makes a card jump if a drag starts mid-tween. Opacity is
+ * untouched by the drag machinery, so the two never collide.
+ *
+ * @param {HTMLElement} node
+ * @param {{duration?: number, delay?: number}} [options]
+ */
+export function fadeIn(node, options = {}) {
+  if (prefersReducedMotion()) return {};
+
+  const { duration = 0.35, delay = 0 } = options;
+  const tween = gsap.fromTo(
+    node,
+    { opacity: 0 },
+    { opacity: 1, duration, delay, ease: "power1.out", clearProps: "opacity" }
+  );
+
+  return {
+    destroy() {
+      tween.kill();
+    },
+  };
+}

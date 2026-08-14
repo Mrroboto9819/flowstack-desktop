@@ -39,7 +39,7 @@
   import { _ } from "$lib/i18n";
   import { formatBoardSummaryForClipboard, copyToClipboard } from "../../lib/utils/clipboard.js";
   import { exportTasksToFile, importTasksWithDialog } from "../../lib/utils/taskTransfer.js";
-  import { staggerChildren } from "$lib/actions/animate.js";
+  import { fadeIn, staggerChildren } from "$lib/actions/animate.js";
 
   let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
   let users = $derived(userStore.users);
@@ -480,6 +480,13 @@
               items: getTasksForStatusDnd(statusItem.status),
               flipDurationMs,
               type: "task",
+              // The library's default is a hard blue outline that ignores the
+              // theme. Empty it and drive the affordance from CSS instead.
+              dropTargetStyle: {},
+              dropTargetClasses: ["dnd-column--active"],
+              // Lets a drag start from anywhere on the card while still
+              // allowing the card's own buttons to be clicked
+              dragDisabled: false,
             }}
             onconsider={(e) => handleTaskDndConsider(statusItem.status, e)}
             onfinalize={(e) => handleTaskDndFinalize(statusItem.status, e)}
@@ -492,6 +499,7 @@
                     task.subtasks.every((st) => st.completed)}
                   <article
                     animate:flip={{ duration: flipDurationMs }}
+                    use:fadeIn
                     class={`group relative flex cursor-grab flex-col rounded-xl border bg-card p-4 transition-colors duration-200 active:scale-[0.99] ${
                       task.blocked
                         ? "border-rose-500/40 bg-rose-500/5"
