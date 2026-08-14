@@ -140,12 +140,19 @@ export function formatTaskForClipboard(task, options = {}) {
  * @returns {string} Formatted summary string
  */
 export function formatBoardSummaryForClipboard(tasks, statuses, options = {}) {
-  const { sprints = [], showDetails = false } = options;
+  const { sprints = [], showDetails = false, filters = [], project = "" } = options;
   const lines = [];
 
   // Header
   lines.push("📊 Task Board Summary");
   lines.push("═".repeat(40));
+  if (project) lines.push(`Project: ${project}`);
+  // Say what the numbers cover. Pasting a filtered summary with no note of the
+  // filter reads as the whole board, which is how a partial count gets quoted
+  // as if it were the total.
+  if (filters.length > 0) {
+    lines.push(`Filtered by: ${filters.join(" · ")}`);
+  }
   lines.push("");
 
   // Overall stats

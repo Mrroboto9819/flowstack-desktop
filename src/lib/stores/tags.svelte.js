@@ -154,6 +154,26 @@ export const tagStore = {
     return tag;
   },
 
+  /**
+   * The colour registered for a tag name.
+   *
+   * Task cards carry tag *names* (the denormalised mirror), not ids, so a
+   * name lookup is what the views actually need. Falls back to the palette by
+   * a hash of the name, so a tag that predates the colour field still renders
+   * consistently rather than switching colour between loads.
+   *
+   * @param {string} name
+   */
+  colorForName(name) {
+    const wanted = String(name || "").trim().toLowerCase();
+    const found = tags.find((t) => (t.name || "").trim().toLowerCase() === wanted);
+    if (found?.color) return found.color;
+
+    let hash = 0;
+    for (let i = 0; i < wanted.length; i += 1) hash = (hash * 31 + wanted.charCodeAt(i)) >>> 0;
+    return DEFAULT_TAG_COLORS[hash % DEFAULT_TAG_COLORS.length];
+  },
+
   getById(id) {
     return tags.find((tag) => tag.id === id);
   },

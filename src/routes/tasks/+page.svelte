@@ -22,7 +22,15 @@
     ChevronDown,
     SlidersHorizontal,
   } from "$lib/icons";
-  import { taskStore, userStore, statusStore, settingsStore, sprintStore, projectStore } from "../../lib/stores/index.js";
+  import {
+    taskStore,
+    userStore,
+    statusStore,
+    settingsStore,
+    sprintStore,
+    projectStore,
+    tagStore,
+  } from "../../lib/stores/index.js";
   import TaskModal from "../../lib/components/TaskModal.svelte";
   import TaskDetailModal from "../../lib/components/TaskDetailModal.svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
@@ -220,9 +228,32 @@
   }
 
   // Copy summary
+  /** Human-readable description of what is currently filtered, for the summary. */
+  function activeFilterLabels() {
+    const labels = [];
+    if (filterStatus !== "all") labels.push(`status: ${filterStatus}`);
+    if (filterSprint !== "all") {
+      const s = sprintStore.getById(filterSprint);
+      labels.push(`sprint: ${s?.name || (filterSprint === "backlog" ? "backlog" : filterSprint)}`);
+    }
+    if (filterAssignee !== "all") {
+      const u = userStore.getById(filterAssignee);
+      const name = u ? `${u.name || ""} ${u.lastname || ""}`.trim() : filterAssignee;
+      labels.push(`assignee: ${filterAssignee === "unassigned" ? "unassigned" : name}`);
+    }
+    if (filterTag.trim()) labels.push(`tag: ${filterTag.trim()}`);
+    if (filterFrom) labels.push(`from: ${filterFrom}`);
+    if (filterTo) labels.push(`to: ${filterTo}`);
+    return labels;
+  }
+
   async function copyTagsSummary() {
     const sprints = sprintStore.sprints;
-    const text = formatBoardSummaryForClipboard(filteredTasks, visibleStatuses, { sprints });
+    const text = formatBoardSummaryForClipboard(filteredTasks, visibleStatuses, {
+      sprints,
+      filters: activeFilterLabels(),
+      project: projectStore.current?.name || "",
+    });
     const success = await copyToClipboard(text);
     if (success) {
       toastStore.success($_("tasks.summaryCopied"));
@@ -607,7 +638,11 @@
                     {#if task.tags && task.tags.length > 0}
                       <div class="flex flex-wrap gap-1.5 mb-3">
                         {#each task.tags.slice(0, 3) as tag}
-                          <span class="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[9px] font-medium text-foreground">
+                          {@const tagColor = tagStore.colorForName(tag)}
+                          <span
+                            class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[9px] font-medium"
+                            style="color: {tagColor}; border-color: {tagColor}59; background-color: {tagColor}1f"
+                          >
                             <Tag size={8} />
                             {tag}
                           </span>

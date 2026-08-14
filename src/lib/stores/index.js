@@ -398,8 +398,17 @@ export function exportAllData() {
     },
   };
 
-  // Export all storage keys
+  // Data slices come from the persistence layer, which is authoritative.
+  // Reading localStorage here would export the crash cache instead - fine
+  // while the two agree, silently stale the moment they do not.
+  for (const slice of ["tasks", "users", "sprints", "projects", "statuses", "settings", "tags"]) {
+    const value = loadSlice(slice, undefined);
+    if (value !== undefined) exportData.data[slice] = value;
+  }
+
+  // Preferences are single values that never went through the slice layer
   Object.entries(STORAGE_KEYS).forEach(([key, storageKey]) => {
+    if (!["userName", "themeColor", "darkMode", "locale"].includes(key)) return;
     const value = localStorage.getItem(storageKey);
     if (value !== null) {
       try {
