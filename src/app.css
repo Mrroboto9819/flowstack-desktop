@@ -345,48 +345,32 @@
   }
 }
 /* --------------------------------------------------------------------------
-   Completed task card
+   Completed subtask bar
 
-   Every subtask ticked. The glow is a reward signal, so it breathes rather
-   than sitting static - but only for people who have not asked the OS for
-   reduced motion, where it drops to a plain steady ring.
-
-   `blocked` deliberately wins over this in the markup: being stuck is more
-   urgent than being finished.
+   The bar tracks progress in a muted grey while there is work left, then
+   switches to the app colour and glows once every subtask is ticked. The
+   signal lives on the bar rather than the card so a finished task still reads
+   as an ordinary card in the column.
    -------------------------------------------------------------------------- */
-@keyframes task-complete-glow {
+@keyframes subtask-bar-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 1px rgb(16 185 129 / 0.35), 0 0 12px 0 rgb(16 185 129 / 0.25);
+    box-shadow: 0 0 6px 0 hsl(var(--primary) / 0.55);
   }
   50% {
-    box-shadow: 0 0 0 1px rgb(16 185 129 / 0.55), 0 0 22px 2px rgb(16 185 129 / 0.45);
+    box-shadow: 0 0 12px 2px hsl(var(--primary) / 0.9);
   }
 }
 
-.task-card--complete {
-  animation: task-complete-glow 2.4s ease-in-out infinite;
-}
-
-/* Dark backgrounds need more light to read as a glow at all */
-.dark .task-card--complete {
-  animation-name: task-complete-glow-dark;
-}
-
-@keyframes task-complete-glow-dark {
-  0%,
-  100% {
-    box-shadow: 0 0 0 1px rgb(52 211 153 / 0.45), 0 0 14px 0 rgb(52 211 153 / 0.3);
-  }
-  50% {
-    box-shadow: 0 0 0 1px rgb(52 211 153 / 0.7), 0 0 26px 3px rgb(52 211 153 / 0.55);
-  }
+.subtask-bar--complete {
+  background-color: hsl(var(--primary));
+  animation: subtask-bar-glow 2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .task-card--complete {
+  .subtask-bar--complete {
     animation: none;
-    box-shadow: 0 0 0 1px rgb(16 185 129 / 0.5);
+    box-shadow: 0 0 6px 0 hsl(var(--primary) / 0.6);
   }
 }
 

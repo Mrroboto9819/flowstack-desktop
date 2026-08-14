@@ -503,9 +503,7 @@
                     class={`group relative flex cursor-grab flex-col rounded-xl border bg-card p-4 transition-colors duration-200 active:scale-[0.99] ${
                       task.blocked
                         ? "border-rose-500/40 bg-rose-500/5"
-                        : subtasksAllDone
-                          ? "task-card--complete border-emerald-500/50 bg-emerald-500/5"
-                          : "border-border hover:border-primary"
+                        : "border-border hover:border-primary"
                     }`}
                   >
                     <!-- Drag handle -->
@@ -603,9 +601,11 @@
                             class="ml-auto shrink-0 text-muted-foreground transition-transform duration-200 {expanded ? 'rotate-180' : ''}"
                           />
                         </button>
-                        <div class="h-1 bg-muted rounded-full overflow-hidden">
+                        <div class="h-1 overflow-hidden rounded-full bg-muted">
                           <div
-                            class="h-full bg-primary transition-all duration-300"
+                            class="h-full rounded-full transition-all duration-300 {subtasksAllDone
+                              ? 'subtask-bar--complete'
+                              : 'bg-muted-foreground/40'}"
                             style={`width: ${totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0}%`}
                           ></div>
                         </div>
