@@ -174,9 +174,7 @@ function resolveRelations(task) {
 
 function saveTasks() {
   tasks = removeDuplicates(tasks);
-  if (typeof localStorage !== "undefined") {
-    saveSlice("tasks", tasks);
-  }
+  saveSlice("tasks", tasks);
 }
 
 export const taskStore = {
@@ -189,8 +187,6 @@ export const taskStore = {
   },
 
   hydrate() {
-    if (typeof localStorage === "undefined") return;
-
     try {
       const stored = loadSlice("tasks", null);
       if (stored) {
@@ -232,7 +228,7 @@ export const taskStore = {
         });
 
         // Persist once so the migration does not re-run on every load
-        if (migrated && typeof localStorage !== "undefined") {
+        if (migrated) {
           saveSlice("tasks", tasks);
         }
       }

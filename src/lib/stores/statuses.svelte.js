@@ -78,9 +78,7 @@ function removeDuplicates(items) {
 
 function saveStatuses() {
   statuses = removeDuplicates(statuses);
-  if (typeof localStorage !== "undefined") {
-    saveSlice("statuses", statuses);
-  }
+  saveSlice("statuses", statuses);
 }
 
 export const statusStore = {
@@ -93,8 +91,6 @@ export const statusStore = {
   },
 
   hydrate() {
-    if (typeof localStorage === "undefined") return;
-
     try {
       const stored = loadSlice("statuses", null);
       if (stored) {
@@ -112,7 +108,7 @@ export const statusStore = {
           order: status.order ?? index,
         }));
 
-        // If we fixed any order values, save them back to localStorage
+        // If we fixed any order values, persist them
         if (needsOrderFix) {
           saveStatuses();
         }

@@ -37,9 +37,7 @@ function removeDuplicates(items) {
 
 function saveTags() {
   tags = removeDuplicates(tags);
-  if (typeof localStorage !== "undefined") {
-    saveSlice("tags", tags);
-  }
+  saveSlice("tags", tags);
 }
 
 export const tagStore = {
@@ -48,8 +46,6 @@ export const tagStore = {
   },
 
   hydrate() {
-    if (typeof localStorage === "undefined") return;
-
     try {
       const stored = loadSlice("tags", null);
       if (stored) {

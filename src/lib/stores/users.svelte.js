@@ -25,9 +25,7 @@ function removeDuplicates(items) {
 
 function saveUsers() {
   users = removeDuplicates(users);
-  if (typeof localStorage !== "undefined") {
-    saveSlice("users", users);
-  }
+  saveSlice("users", users);
 }
 
 export const userStore = {
@@ -36,8 +34,6 @@ export const userStore = {
   },
 
   hydrate() {
-    if (typeof localStorage === "undefined") return;
-
     try {
       const stored = loadSlice("users", null);
       if (stored) {

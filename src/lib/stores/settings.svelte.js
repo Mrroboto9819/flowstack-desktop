@@ -30,9 +30,7 @@ let settings = $state({
 });
 
 function saveSettings() {
-  if (typeof localStorage !== "undefined") {
-    saveSlice("settings", settings);
-  }
+  saveSlice("settings", settings);
 }
 
 export const settingsStore = {
@@ -41,8 +39,6 @@ export const settingsStore = {
   },
 
   hydrate() {
-    if (typeof localStorage === "undefined") return;
-
     try {
       const stored = loadSlice("settings", null);
       if (stored) {

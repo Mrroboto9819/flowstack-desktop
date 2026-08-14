@@ -25,10 +25,10 @@ let projects = $state([]);
  * it, and anything created (task, sprint) inherits it - so this selector is
  * what actually defines the relationship, not a per-item picker.
  *
- * A per-machine view choice rather than board data, so it lives beside the
- * other single-value preferences instead of in the snapshot slices.
+ * Persisted as `isActive` on the project record itself rather than in
+ * localStorage: the MCP server has to know which project new work belongs to,
+ * and it cannot read another process's localStorage.
  */
-const CURRENT_KEY = "taskflow_current_project";
 let currentProjectId = $state(null);
 
 function newId() {
@@ -46,9 +46,7 @@ function removeDuplicates(items) {
 
 function saveProjects() {
   projects = removeDuplicates(projects);
-  if (typeof localStorage !== "undefined") {
-    saveSlice("projects", projects);
-  }
+  saveSlice("projects", projects);
 }
 
 export const projectStore = {
@@ -79,10 +77,6 @@ export const projectStore = {
     // which project new work should belong to.
     projects = projects.map((p) => ({ ...p, isActive: p.id === currentProjectId }));
     saveProjects();
-
-    if (typeof localStorage === "undefined") return;
-    if (currentProjectId) localStorage.setItem(CURRENT_KEY, currentProjectId);
-    else localStorage.removeItem(CURRENT_KEY);
   },
 
   /**
@@ -107,8 +101,6 @@ export const projectStore = {
   },
 
   hydrate() {
-    if (typeof localStorage === "undefined") return;
-
     try {
       const stored = loadSlice("projects", null);
       if (stored) {
@@ -119,17 +111,11 @@ export const projectStore = {
       projects = [];
     }
 
-    // Restore the scope. The flag on the record wins over localStorage, since
-    // it travels with the data and is what the MCP server reads.
+    // Restore the scope from the record itself, falling back to the first
+    // project so a board that predates the flag still lands somewhere valid
     const flagged = projects.find((p) => p.isActive);
-    const saved = localStorage.getItem(CURRENT_KEY);
-
     if (flagged) {
       currentProjectId = flagged.id;
-      localStorage.setItem(CURRENT_KEY, currentProjectId);
-    } else if (saved && projects.some((p) => p.id === saved)) {
-      currentProjectId = saved;
-      this.setCurrent(saved); // stamp the flag so the MCP can see it too
     } else if (projects.length > 0) {
       this.setCurrent(projects[0].id);
     } else {

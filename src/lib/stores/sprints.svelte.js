@@ -27,9 +27,7 @@ function removeDuplicates(items) {
 
 function saveSprints() {
   sprints = removeDuplicates(sprints);
-  if (typeof localStorage !== "undefined") {
-    saveSlice("sprints", sprints);
-  }
+  saveSlice("sprints", sprints);
 }
 
 export const sprintStore = {
@@ -38,8 +36,6 @@ export const sprintStore = {
   },
 
   hydrate() {
-    if (typeof localStorage === "undefined") return;
-
     try {
       const stored = loadSlice("sprints", null);
       if (stored) {
