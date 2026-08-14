@@ -255,7 +255,7 @@
                     <span
                       class={`flex-1 text-sm ${
                         subtask.completed
-                          ? "text-muted-foreground line-through"
+                          ? "text-muted-foreground"
                           : "text-foreground"
                       }`}
                     >

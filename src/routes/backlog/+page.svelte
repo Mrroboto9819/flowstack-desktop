@@ -137,8 +137,16 @@
       <div class="grid gap-4 lg:grid-cols-2">
         {#each backlogItems as task (task.id)}
           {@const priorityColor = getPriorityColor(task.priority || "medium")}
+          {@const subtasksAllDone =
+            Array.isArray(task.subtasks) &&
+            task.subtasks.length > 0 &&
+            task.subtasks.every((st) => st.completed)}
           <!-- The item is the only surface on this page -->
-          <article class="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary">
+          <article
+            class="rounded-xl border bg-card p-4 transition-colors {subtasksAllDone
+              ? 'task-card--complete border-emerald-500/50 bg-emerald-500/5'
+              : 'border-border hover:border-primary'}"
+          >
             <div class="flex items-start justify-between gap-3">
               <!-- Content -->
               <div class="flex-1 min-w-0">

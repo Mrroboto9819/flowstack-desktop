@@ -187,9 +187,9 @@
     </div>
   </header>
 
-  <div class="space-y-6 max-w-3xl">
+  <div class="max-w-3xl space-y-8">
     <!-- User Profile Section -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-b border-border pb-8">
       <div class="flex items-center gap-3 mb-4">
         <User size={20} class="text-primary" />
         <h2 class="text-lg font-semibold text-foreground">
@@ -220,7 +220,7 @@
     </section>
 
     <!-- Appearance Section -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-b border-border pb-8">
       <div class="flex items-center gap-3 mb-4">
         <Palette size={20} class="text-primary" />
         <h2 class="text-lg font-semibold text-foreground">
@@ -294,7 +294,7 @@
     </section>
 
     <!-- Language Section -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-b border-border pb-8">
       <div class="flex items-center gap-3 mb-4">
         <Globe size={20} class="text-primary" />
         <h2 class="text-lg font-semibold text-foreground">
@@ -331,7 +331,7 @@
     </section>
 
     <!-- Project Methodology Section -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-b border-border pb-8">
       <div class="flex items-center gap-3 mb-4">
         <Workflow size={20} class="text-primary" />
         <div>
@@ -377,7 +377,7 @@
 
     <!-- Sprint Settings Section (only for Agile) -->
     {#if methodology === "agile"}
-      <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <section class="border-b border-border pb-8">
         <div class="flex items-center gap-3 mb-4">
           <CalendarCheck size={20} class="text-primary" />
           <h2 class="text-lg font-semibold text-foreground">
@@ -415,7 +415,7 @@
     {/if}
 
     <!-- App Information -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="border-b border-border pb-8">
       <h2 class="text-lg font-semibold text-foreground mb-4">
         {$_("preferences.about.title")}
       </h2>
@@ -438,7 +438,7 @@
     </section>
 
     <!-- Data Management Section -->
-    <section class="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section class="pb-2">
       <div class="flex items-center gap-3 mb-4">
         <Database size={20} class="text-primary" />
         <h2 class="text-lg font-semibold text-foreground">

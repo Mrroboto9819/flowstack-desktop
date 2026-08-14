@@ -485,12 +485,18 @@
           >
                 {#each getTasksForStatusDnd(statusItem.status) as task (task.id)}
                   {@const priorityColor = getPriorityColor(task.priority || "medium")}
+                  {@const subtasksAllDone =
+                    Array.isArray(task.subtasks) &&
+                    task.subtasks.length > 0 &&
+                    task.subtasks.every((st) => st.completed)}
                   <article
                     animate:flip={{ duration: flipDurationMs }}
                     class={`group relative flex cursor-grab flex-col rounded-xl border bg-card p-4 transition-colors duration-200 active:scale-[0.99] ${
                       task.blocked
                         ? "border-rose-500/40 bg-rose-500/5"
-                        : "border-border hover:border-primary"
+                        : subtasksAllDone
+                          ? "task-card--complete border-emerald-500/50 bg-emerald-500/5"
+                          : "border-border hover:border-primary"
                     }`}
                   >
                     <!-- Drag handle -->
@@ -618,7 +624,7 @@
                                   <span
                                     class={`text-[11px] leading-snug ${
                                       subtask.completed
-                                        ? "text-muted-foreground line-through"
+                                        ? "text-muted-foreground"
                                         : "text-foreground"
                                     }`}
                                   >
