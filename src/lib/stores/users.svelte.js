@@ -99,6 +99,30 @@ export const userStore = {
     return MEMBER_COLORS[hash % MEMBER_COLORS.length];
   },
 
+  /** The team member this install is signed in as, if one is linked. */
+  get currentMember() {
+    return users.find((u) => u.isCurrentUser) || null;
+  },
+
+  /**
+   * Link the profile to a team member, or unlink when passed null.
+   *
+   * Stored as a flag on the record rather than a separate preference so the
+   * profile and the roster can never drift apart - editing the member IS
+   * editing the profile, which is the point.
+   *
+   * @param {string|null} id
+   */
+  setCurrentMember(id) {
+    const now = new Date().toISOString();
+    users = users.map((user) => {
+      const isCurrent = Boolean(id) && user.id === id;
+      if (Boolean(user.isCurrentUser) === isCurrent) return user;
+      return { ...user, isCurrentUser: isCurrent, updated: now };
+    });
+    saveUsers();
+  },
+
   /** Add or remove this member from a project. */
   setProjectMembership(id, projectId, isMember) {
     const now = new Date().toISOString();

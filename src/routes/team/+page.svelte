@@ -16,6 +16,7 @@
   import { _ } from "$lib/i18n";
   import Skeleton from "../../lib/components/Skeleton.svelte";
   import { appState } from "../../lib/stores/app.svelte.js";
+  import StandardSwitch from "../../lib/StandardSwitch.svelte";
 
   let users = $derived(userStore.users);
   // The roster is deliberately global: people work across projects, so scoping
@@ -269,6 +270,20 @@
                       </p>
                     {/if}
                   </div>
+                </div>
+
+                <!-- "This is me": links the profile to this member. Exactly one
+                     can be current, so switching one on switches the rest off. -->
+                <div class="flex flex-shrink-0 items-center gap-2 pr-2">
+                  <span class="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {$_("team.thisIsMe")}
+                  </span>
+                  <StandardSwitch
+                    checked={Boolean(user.isCurrentUser)}
+                    color={userStore.colorFor(user)}
+                    onchange={() =>
+                      userStore.setCurrentMember(user.isCurrentUser ? null : user.id)}
+                  />
                 </div>
 
                 <!-- Actions -->

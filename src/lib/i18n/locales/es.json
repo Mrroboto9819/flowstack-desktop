@@ -449,26 +449,14 @@
     }
   },
   "team": {
-    "title": "Equipo",
-    "description": "Gestiona los miembros de tu equipo y sus roles",
-    "addMember": "Agregar Miembro",
-    "newMember": "Nuevo Miembro",
-    "teamMembers": "Miembros del Equipo",
-    "member": "miembro",
-    "members": "miembros",
-    "totalMembers": "Total de Miembros",
-    "roles": "Roles",
-    "withTasks": "Con Tareas",
-    "noTeamMembers": "Sin Miembros del Equipo",
-    "noMembers": "Sin miembros del equipo todavía",
+    "active": "Activas",
     "addFirstMember": "Agregar Primer Miembro",
+    "addMember": "Agregar Miembro",
     "addMemberDesc": "Agrega miembros del equipo para asignar tareas y colaborar efectivamente.",
     "createFirst": "Agrega tu primer miembro del equipo",
-    "totalTasks": "Total de Tareas",
-    "active": "Activas",
-    "removeMember": "Eliminar Miembro del Equipo",
-    "removeMemberMessage": "¿Estás seguro de que deseas eliminar a {name} del equipo? Esto no eliminará sus tareas asignadas.",
-    "remove": "Eliminar",
+    "description": "Gestiona los miembros de tu equipo y sus roles",
+    "member": "miembro",
+    "members": "miembros",
     "modal": {
       "createTitle": "Nuevo Miembro del Equipo",
       "editTitle": "Editar Miembro del Equipo",
@@ -484,7 +472,20 @@
         "create": "Agregar Miembro",
         "save": "Guardar Cambios"
       }
-    }
+    },
+    "newMember": "Nuevo Miembro",
+    "noMembers": "Sin miembros del equipo todavía",
+    "noTeamMembers": "Sin Miembros del Equipo",
+    "remove": "Eliminar",
+    "removeMember": "Eliminar Miembro del Equipo",
+    "removeMemberMessage": "¿Estás seguro de que deseas eliminar a {name} del equipo? Esto no eliminará sus tareas asignadas.",
+    "roles": "Roles",
+    "teamMembers": "Miembros del Equipo",
+    "thisIsMe": "Este soy yo",
+    "title": "Equipo",
+    "totalMembers": "Total de Miembros",
+    "totalTasks": "Total de Tareas",
+    "withTasks": "Con Tareas"
   },
   "confirmModal": {
     "defaultTitle": "Confirmar Acción",

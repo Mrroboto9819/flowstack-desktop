@@ -449,26 +449,14 @@
     }
   },
   "team": {
-    "title": "Team",
-    "description": "Manage your team members and their roles",
-    "addMember": "Add Member",
-    "newMember": "New Member",
-    "teamMembers": "Team Members",
-    "member": "member",
-    "members": "members",
-    "totalMembers": "Total Members",
-    "roles": "Roles",
-    "withTasks": "With Tasks",
-    "noTeamMembers": "No Team Members",
-    "noMembers": "No team members yet",
+    "active": "Active",
     "addFirstMember": "Add First Member",
+    "addMember": "Add Member",
     "addMemberDesc": "Add team members to assign tasks and collaborate effectively.",
     "createFirst": "Add your first team member",
-    "totalTasks": "Total Tasks",
-    "active": "Active",
-    "removeMember": "Remove Team Member",
-    "removeMemberMessage": "Are you sure you want to remove {name} from the team? This will not delete their assigned tasks.",
-    "remove": "Remove",
+    "description": "Manage your team members and their roles",
+    "member": "member",
+    "members": "members",
     "modal": {
       "createTitle": "New Team Member",
       "editTitle": "Edit Team Member",
@@ -484,7 +472,20 @@
         "create": "Add Member",
         "save": "Save Changes"
       }
-    }
+    },
+    "newMember": "New Member",
+    "noMembers": "No team members yet",
+    "noTeamMembers": "No Team Members",
+    "remove": "Remove",
+    "removeMember": "Remove Team Member",
+    "removeMemberMessage": "Are you sure you want to remove {name} from the team? This will not delete their assigned tasks.",
+    "roles": "Roles",
+    "teamMembers": "Team Members",
+    "thisIsMe": "This is me",
+    "title": "Team",
+    "totalMembers": "Total Members",
+    "totalTasks": "Total Tasks",
+    "withTasks": "With Tasks"
   },
   "confirmModal": {
     "defaultTitle": "Confirm Action",
