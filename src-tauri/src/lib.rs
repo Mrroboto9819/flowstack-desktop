@@ -11,6 +11,11 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // Remembers where the user put the window and how big they made it.
+        // Without this the `center` + default size in tauri.conf.json would
+        // re-apply on every launch, so moving the window would never stick.
+        // First run has no saved state, so the config defaults apply then.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;

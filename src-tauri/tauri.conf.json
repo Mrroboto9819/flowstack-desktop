@@ -14,9 +14,13 @@
       {
         "label": "main",
         "title": "FlowStack",
-        "width": 1920,
-        "height": 1080,
-        "decorations": false
+        "width": 1280,
+        "height": 800,
+        "decorations": false,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true
       }
     ],
     "security": {
