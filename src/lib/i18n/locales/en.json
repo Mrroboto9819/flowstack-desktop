@@ -23,7 +23,8 @@
     "team": "Team",
     "reports": "Reports",
     "boardSettings": "Board Settings",
-    "about": "About"
+    "about": "About",
+    "projects": "Projects"
   },
   "sidebar": {
     "expandSidebar": "Expand sidebar",
@@ -513,5 +514,32 @@
     "builtWith": "Built With",
     "madeWith": "Made with",
     "madeWithEnd": "in Mexico"
+  },
+  "projects": {
+    "color": "Colour",
+    "create": "Create project",
+    "current": "Current",
+    "deleteMessage": "Delete \"{name}\"? Its tasks and sprints are kept but become unassigned.",
+    "deleteTitle": "Delete project",
+    "doneLabel": "done",
+    "editing": "Editing project",
+    "empty": "No projects yet. Create one to get started.",
+    "image": "Image",
+    "imageInvalid": "That file is not an image",
+    "imageTooLarge": "Image must be under 512 KB",
+    "manage": "Manage projects",
+    "name": "Name",
+    "namePlaceholder": "e.g. Website redesign",
+    "nameRequired": "A project needs a name",
+    "new": "New project",
+    "none": "No project",
+    "removeImage": "Remove",
+    "slogan": "Slogan",
+    "sloganPlaceholder": "A short line describing it",
+    "sprintsLabel": "sprints",
+    "subtitle": "Everything you work on lives inside a project. The switcher in the sidebar decides what you see and what new work belongs to.",
+    "switchTo": "Switch to",
+    "tasksLabel": "tasks",
+    "upload": "Upload"
   }
 }

@@ -24,6 +24,7 @@ const LEGACY_KEYS = {
   tasks: "taskflow_tasks",
   users: "taskflow_users",
   sprints: "taskflow_sprints",
+  projects: "taskflow_projects",
   statuses: "taskflow_statuses",
   settings: "taskflow_settings",
   tags: "taskflow_tags",

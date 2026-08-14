@@ -10,8 +10,9 @@ export { sprintStore } from "./sprints.svelte.js";
 export { statusStore } from "./statuses.svelte.js";
 export { settingsStore } from "./settings.svelte.js";
 export { tagStore } from "./tags.svelte.js";
+export { projectStore } from "./projects.svelte.js";
 
-import { taskStore } from "./tasks.svelte.js";
+import { taskStore, setSprintProjectLookup } from "./tasks.svelte.js";
 import { userStore } from "./users.svelte.js";
 import { currentUserStore } from "./currentUser.svelte.js";
 import { themeStore } from "./theme.svelte.js";
@@ -19,6 +20,7 @@ import { sprintStore } from "./sprints.svelte.js";
 import { statusStore } from "./statuses.svelte.js";
 import { settingsStore } from "./settings.svelte.js";
 import { tagStore } from "./tags.svelte.js";
+import { projectStore } from "./projects.svelte.js";
 import { toastStore } from "../toastStore.svelte.js";
 import { initPersistence, flushNow, persistenceInfo, save as saveSlice } from "../persistence.js";
 
@@ -32,6 +34,7 @@ const STORAGE_KEYS = {
   statuses: "taskflow_statuses",
   settings: "taskflow_settings",
   tags: "taskflow_tags",
+  projects: "taskflow_projects",
   userName: "userName",
   themeColor: "themeColor",
   darkMode: "darkMode",
@@ -75,7 +78,7 @@ function migrateIdsToUuid() {
   const idMaps = {};
 
   // Pass 1 - the records themselves
-  for (const name of ["sprints", "users", "tags"]) {
+  for (const name of ["sprints", "users", "tags", "projects"]) {
     const rows = read(STORAGE_KEYS[name]);
     if (!Array.isArray(rows)) continue;
 
@@ -100,7 +103,26 @@ function migrateIdsToUuid() {
     }
   }
 
-  // Pass 2 - the foreign keys on tasks
+  // Pass 2a - projectId on sprints, if the project ids were just reminted
+  if (Object.keys(idMaps.projects || {}).length) {
+    const sprintRows = read(STORAGE_KEYS.sprints);
+    if (Array.isArray(sprintRows)) {
+      let touched = false;
+      const next = sprintRows.map((sprint) => {
+        if (!sprint || typeof sprint !== "object") return sprint;
+        const mapped = sprint.projectId && idMaps.projects[sprint.projectId];
+        if (!mapped) return sprint;
+        touched = true;
+        return { ...sprint, projectId: mapped };
+      });
+      if (touched) {
+        write(STORAGE_KEYS.sprints, next);
+        changed = true;
+      }
+    }
+  }
+
+  // Pass 2b - the foreign keys on tasks
   const tasks = read(STORAGE_KEYS.tasks);
   if (Array.isArray(tasks)) {
     let touched = false;
@@ -115,6 +137,9 @@ function migrateIdsToUuid() {
       }
       if (task.assigneeId && idMaps.users?.[task.assigneeId]) {
         patch.assigneeId = idMaps.users[task.assigneeId];
+      }
+      if (task.projectId && idMaps.projects?.[task.projectId]) {
+        patch.projectId = idMaps.projects[task.projectId];
       }
       if (Array.isArray(task.tagIds)) {
         const remapped = task.tagIds.map((id) => idMaps.tags?.[id] || id);
@@ -141,6 +166,67 @@ function migrateIdsToUuid() {
   }
 
   return changed;
+}
+
+/**
+ * Give existing data a home.
+ *
+ * Projects arrived after sprints and tasks did, so an install upgrading into
+ * this version has records with no projectId. Rather than showing everything
+ * as "Unassigned", mint one project and adopt the lot - the board looks the
+ * same as it did before, and the project filter is useful from the first run.
+ *
+ * Runs on localStorage BEFORE any store hydrates, like migrateIdsToUuid, so
+ * the stores never see the half-migrated shape.
+ *
+ * @returns {boolean} whether anything was written
+ */
+function migrateDefaultProject() {
+  if (typeof localStorage === "undefined") return false;
+
+  const read = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+  const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+
+  const existing = read(STORAGE_KEYS.projects);
+  // Only ever runs once: as soon as a project exists, this is a no-op forever
+  if (Array.isArray(existing) && existing.length > 0) return false;
+
+  const now = new Date().toISOString();
+  const project = {
+    id: crypto.randomUUID(),
+    name: "Main Project",
+    description: "Everything that existed before projects were introduced.",
+    color: "#2dd4bf",
+    status: "active",
+    origin: "migration",
+    created: now,
+    updated: now,
+  };
+
+  write(STORAGE_KEYS.projects, [project]);
+
+  // Adopt every sprint and task that has no project yet
+  for (const key of [STORAGE_KEYS.sprints, STORAGE_KEYS.tasks]) {
+    const rows = read(key);
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+    write(
+      key,
+      rows.map((row) =>
+        row && typeof row === "object" && !row.projectId
+          ? { ...row, projectId: project.id }
+          : row
+      )
+    );
+  }
+
+  return true;
 }
 
 /**
@@ -179,11 +265,18 @@ export function hydrateAllStores(options = {}) {
   // the data - so the stores hydrate from an already-keyed graph
   migrateIdsToUuid();
 
+  // Then make sure everything belongs to a project
+  migrateDefaultProject();
+
   // Order matters: tasks resolve their assigneeId / tagIds / sprintId foreign
   // keys during hydration, so every record they point at must already be
   // loaded. Hydrating tasks first leaves those keys unresolved (null).
+  // Wire the task -> sprint -> project derivation before any task resolves
+  setSprintProjectLookup((sprintId) => sprintStore.getById(sprintId)?.projectId || null);
+
   userStore.hydrate();
   tagStore.hydrate();
+  projectStore.hydrate();
   sprintStore.hydrate();
   statusStore.hydrate();
   statusStore.ensureDoneStatus(); // Ensure DONE status exists and is protected
@@ -205,6 +298,7 @@ export function clearAllStores() {
 
   taskStore.clear();
   userStore.clear();
+  projectStore.clear();
   sprintStore.clear();
   statusStore.clear();
   settingsStore.reset();
@@ -232,6 +326,7 @@ export function exportAllData() {
       tasks: [],
       users: [],
       sprints: [],
+      projects: [],
       statuses: [],
       settings: {},
       tags: [],
@@ -360,7 +455,15 @@ async function processImportData(jsonText) {
     const localMcp = settingsStore.settings.mcp;
 
     // Data slices go through the persistence layer so they reach the file
-    for (const slice of ["tasks", "users", "sprints", "statuses", "settings", "tags"]) {
+    for (const slice of [
+      "tasks",
+      "users",
+      "sprints",
+      "projects",
+      "statuses",
+      "settings",
+      "tags",
+    ]) {
       if (importData.data[slice] !== undefined) {
         const value =
           slice === "settings"

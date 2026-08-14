@@ -12,6 +12,22 @@ const STORAGE_KEY = "taskflow_tasks";
 let tasks = $state([]);
 let hasHydrated = $state(false);
 
+/**
+ * Resolves a sprintId to the project that sprint belongs to.
+ *
+ * Injected by stores/index.js rather than imported: sprints.svelte.js already
+ * imports this module, so importing sprintStore back would make the cycle
+ * mutual and leave one side undefined at module-eval time.
+ *
+ * @type {((sprintId: string) => string | null) | null}
+ */
+let sprintProjectLookup = null;
+
+/** @param {(sprintId: string) => string | null} fn */
+export function setSprintProjectLookup(fn) {
+  sprintProjectLookup = fn;
+}
+
 function newId() {
   return crypto.randomUUID();
 }
@@ -126,6 +142,15 @@ function resolveRelations(task) {
     patch.assigneeId = user ? user.id : null;
   } else {
     patch.assigneeId = null;
+  }
+
+  // --- project ---------------------------------------------------------
+  // A task inside a sprint takes that sprint's project, so the two can never
+  // disagree. A backlog task has no sprint to inherit from and simply keeps
+  // whatever project it was given.
+  if (task.sprintId && sprintProjectLookup) {
+    const inherited = sprintProjectLookup(task.sprintId);
+    if (inherited) patch.projectId = inherited;
   }
 
   // --- tags -----------------------------------------------------------
@@ -283,6 +308,15 @@ export const taskStore = {
     }
 
     toastStore.success("Task updated");
+  },
+
+  /** update() without the toast or history - for bulk fix-ups like detaching a project. */
+  updateQuiet(id, updates) {
+    const now = new Date().toISOString();
+    tasks = tasks.map((task) =>
+      task.id === id ? resolveRelations({ ...task, ...updates, updated: now }) : task
+    );
+    saveTasks();
   },
 
   updateStatus(id, newStatus) {

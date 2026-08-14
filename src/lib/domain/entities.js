@@ -130,6 +130,7 @@ export function resolveRelations(task, world = {}) {
   const tags = world.tags || [];
   const sprints = world.sprints || [];
   const statuses = world.statuses || [];
+  const projects = world.projects || [];
 
   const patch = {};
 
@@ -163,8 +164,18 @@ export function resolveRelations(task, world = {}) {
   // --- sprint -------------------------------------------------------------
   // An id that resolves to nothing is worse than none: the task would belong to
   // no sprint AND be filtered out of the backlog, making it invisible everywhere
-  if (task.sprintId && !sprints.some((s) => s.id === task.sprintId)) {
+  const sprint = task.sprintId ? sprints.find((s) => s.id === task.sprintId) : null;
+  if (task.sprintId && !sprint) {
     patch.sprintId = null;
+  }
+
+  // --- project ------------------------------------------------------------
+  // A task in a sprint inherits that sprint's project, so the two can never
+  // disagree. Otherwise keep its own, dropping an id that resolves to nothing.
+  if (sprint && sprint.projectId) {
+    patch.projectId = sprint.projectId;
+  } else if (task.projectId && projects.length > 0 && !projects.some((p) => p.id === task.projectId)) {
+    patch.projectId = null;
   }
 
   // --- status -------------------------------------------------------------
@@ -203,21 +214,31 @@ export function validateTask(task) {
  * Report every relationship that points at a record which does not exist.
  * Used by the MCP server to refuse a write that would corrupt the graph.
  *
- * @param {{tasks?: any[], sprints?: any[], users?: any[], tags?: any[]}} data
+ * @param {{tasks?: any[], sprints?: any[], users?: any[], tags?: any[], projects?: any[]}} data
  * @returns {{field: string, taskId: string, value: string}[]}
  */
 export function findDanglingReferences(data) {
   const sprintIds = new Set((data.sprints || []).map((s) => s.id));
   const userIds = new Set((data.users || []).map((u) => u.id));
   const tagIds = new Set((data.tags || []).map((t) => t.id));
+  const projectIds = new Set((data.projects || []).map((p) => p.id));
 
   const problems = [];
+  for (const sprint of data.sprints || []) {
+    if (sprint.projectId && !projectIds.has(sprint.projectId)) {
+      problems.push({ field: "projectId", sprintId: sprint.id, value: sprint.projectId });
+    }
+  }
+
   for (const task of data.tasks || []) {
     if (task.sprintId && !sprintIds.has(task.sprintId)) {
       problems.push({ field: "sprintId", taskId: task.id, value: task.sprintId });
     }
     if (task.assigneeId && !userIds.has(task.assigneeId)) {
       problems.push({ field: "assigneeId", taskId: task.id, value: task.assigneeId });
+    }
+    if (task.projectId && !projectIds.has(task.projectId)) {
+      problems.push({ field: "projectId", taskId: task.id, value: task.projectId });
     }
     for (const id of task.tagIds || []) {
       if (!tagIds.has(id)) {

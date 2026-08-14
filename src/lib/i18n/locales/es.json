@@ -23,7 +23,8 @@
     "team": "Equipo",
     "reports": "Reportes",
     "boardSettings": "Configuración",
-    "about": "Acerca de"
+    "about": "Acerca de",
+    "projects": "Proyectos"
   },
   "sidebar": {
     "expandSidebar": "Expandir barra lateral",
@@ -513,5 +514,32 @@
     "builtWith": "Construido Con",
     "madeWith": "Hecho con",
     "madeWithEnd": "en México"
+  },
+  "projects": {
+    "color": "Color",
+    "create": "Crear proyecto",
+    "current": "Actual",
+    "deleteMessage": "¿Eliminar \"{name}\"? Sus tareas y sprints se conservan pero quedan sin asignar.",
+    "deleteTitle": "Eliminar proyecto",
+    "doneLabel": "hechas",
+    "editing": "Editando proyecto",
+    "empty": "Aún no hay proyectos. Crea uno para empezar.",
+    "image": "Imagen",
+    "imageInvalid": "Ese archivo no es una imagen",
+    "imageTooLarge": "La imagen debe pesar menos de 512 KB",
+    "manage": "Gestionar proyectos",
+    "name": "Nombre",
+    "namePlaceholder": "ej. Rediseño del sitio",
+    "nameRequired": "El proyecto necesita un nombre",
+    "new": "Nuevo proyecto",
+    "none": "Sin proyecto",
+    "removeImage": "Quitar",
+    "slogan": "Eslogan",
+    "sloganPlaceholder": "Una línea breve que lo describa",
+    "sprintsLabel": "sprints",
+    "subtitle": "Todo lo que trabajas vive dentro de un proyecto. El selector de la barra lateral decide qué ves y a qué pertenece el trabajo nuevo.",
+    "switchTo": "Cambiar a",
+    "tasksLabel": "tareas",
+    "upload": "Subir"
   }
 }

@@ -20,7 +20,7 @@ export const SNAPSHOT_FILENAME = "flowstack.json";
  * revision it read. If the file moved on in between, the write is rejected
  * instead of silently overwriting whatever the other side did.
  *
- * @param {{tasks?: any[], sprints?: any[], users?: any[], tags?: any[], statuses?: any[], settings?: any, preferences?: any}} data
+ * @param {{tasks?: any[], sprints?: any[], projects?: any[], users?: any[], tags?: any[], statuses?: any[], settings?: any, preferences?: any}} data
  * @param {number} revision
  */
 export function buildSnapshot(data, revision = 0) {
@@ -33,6 +33,7 @@ export function buildSnapshot(data, revision = 0) {
     data: {
       tasks: data.tasks || [],
       sprints: data.sprints || [],
+      projects: data.projects || [],
       users: data.users || [],
       tags: data.tags || [],
       statuses: data.statuses || [],
@@ -77,7 +78,14 @@ export function parseSnapshot(input) {
   const data = raw.data && typeof raw.data === "object"
     ? raw.data
     : Array.isArray(raw.tasks)
-      ? { tasks: raw.tasks, sprints: raw.sprints, users: raw.users, tags: raw.tags, statuses: raw.statuses }
+      ? {
+          tasks: raw.tasks,
+          sprints: raw.sprints,
+          projects: raw.projects,
+          users: raw.users,
+          tags: raw.tags,
+          statuses: raw.statuses,
+        }
       : null;
 
   if (!data) return { ok: false, error: "no recognisable data section" };
@@ -85,6 +93,7 @@ export function parseSnapshot(input) {
   const clean = {
     tasks: removeDuplicates(Array.isArray(data.tasks) ? data.tasks : []),
     sprints: removeDuplicates(Array.isArray(data.sprints) ? data.sprints : []),
+    projects: removeDuplicates(Array.isArray(data.projects) ? data.projects : []),
     users: removeDuplicates(Array.isArray(data.users) ? data.users : []),
     tags: removeDuplicates(Array.isArray(data.tags) ? data.tags : []),
     statuses: Array.isArray(data.statuses) ? data.statuses : [],
@@ -94,7 +103,7 @@ export function parseSnapshot(input) {
 
   // Anything without a UUID gets one. Statuses are excluded on purpose - their
   // ids are semantic (BACKLOG, DONE) and matched by name across installs.
-  for (const key of ["tasks", "sprints", "users", "tags"]) {
+  for (const key of ["tasks", "sprints", "projects", "users", "tags"]) {
     clean[key] = clean[key].map((row) => (isUuid(row?.id) ? row : { ...row, id: newId() }));
   }
 
@@ -115,7 +124,7 @@ export function validateSnapshot(snapshot) {
   const data = snapshot?.data;
   if (!data) return { ok: false, error: "snapshot has no data section" };
 
-  for (const key of ["tasks", "sprints", "users", "tags"]) {
+  for (const key of ["tasks", "sprints", "projects", "users", "tags"]) {
     const rows = data[key] || [];
     const bad = rows.filter((r) => !isUuid(r?.id));
     if (bad.length > 0) {

@@ -120,6 +120,15 @@ export const sprintStore = {
     toastStore.success("Sprint updated");
   },
 
+  /** update() without the toast - for bulk fix-ups like detaching a project. */
+  updateQuiet(id, updates) {
+    const now = new Date().toISOString();
+    sprints = sprints.map((sprint) =>
+      sprint.id === id ? { ...sprint, ...updates, updated: now } : sprint
+    );
+    saveSprints();
+  },
+
   activate(id) {
     // Deactivate all other sprints
     sprints = sprints.map((sprint) => ({

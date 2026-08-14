@@ -16,10 +16,12 @@
     SlidersHorizontal,
     BarChart3,
     Info,
+    Briefcase,
   } from "$lib/icons";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { currentUserStore, settingsStore } from "../stores/index.js";
+  import ProjectSwitcher from "./ProjectSwitcher.svelte";
   import { _ } from "$lib/i18n";
 
   // Get methodology from settings
@@ -29,6 +31,7 @@
   const allNavItems = [
     // /sprint was merged into /sprints - one page now holds the active sprint
     // board and the sprint list, so there is a single nav entry for it
+    { href: "/projects", labelKey: "nav.projects", icon: Briefcase, methodologies: ["agile", "kanban", "waterfall"] },
     { href: "/sprints", labelKey: "nav.sprints", icon: KanbanSquare, methodologies: ["agile"] },
     { href: "/tasks", labelKey: "nav.tasks", icon: Clipboard, methodologies: ["agile", "kanban", "waterfall"] },
     { href: "/backlog", labelKey: "nav.backlog", icon: Layers3, methodologies: ["agile", "kanban"] },
@@ -298,6 +301,8 @@
       </a>
     {/each}
   </nav>
+
+  <ProjectSwitcher {isCollapsed} />
 
   <!-- User Profile Section -->
   <div class="border-t border-border p-4">
