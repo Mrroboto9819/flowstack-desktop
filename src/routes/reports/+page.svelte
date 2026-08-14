@@ -21,7 +21,7 @@
   } from "$lib/icons";
   import { onMount, onDestroy } from "svelte";
   import { Chart, registerables } from "chart.js";
-  import { sprintStore, taskStore, userStore, settingsStore } from "../../lib/stores/index.js";
+  import { sprintStore, taskStore, userStore, settingsStore, projectStore } from "../../lib/stores/index.js";
   import { _ } from "$lib/i18n";
   import * as Select from "$lib/components/ui/select/index.svelte";
 
@@ -73,9 +73,17 @@
   let filterDateRange = $state("all"); // all, week, month, quarter, year
   let filterSprint = $state("all");
   let filterMember = $state("all");
+  // Reports is global on purpose: the sidebar project scope does NOT apply
+  // here, since comparing across projects is most of the value. Filtering by
+  // project is opt-in through this control.
+  let filterProject = $state("all");
+  // Free period, used when filterDateRange is "custom"
+  let customFrom = $state("");
+  let customTo = $state("");
 
   let activeFilterCount = $derived(
-    [filterDateRange, filterSprint, filterMember].filter((v) => v !== "all").length
+    [filterDateRange, filterSprint, filterMember, filterProject].filter((v) => v !== "all")
+      .length
   );
 
   // Date range helpers
@@ -105,9 +113,25 @@
     let tasks = allTasks;
     const dateStart = getDateRangeStart();
 
-    // Filter by date range
-    if (dateStart) {
+    // Filter by date range, or by an explicit period when one is given
+    if (filterDateRange === "custom") {
+      if (customFrom) {
+        const from = new Date(customFrom);
+        tasks = tasks.filter((t) => new Date(t.created) >= from);
+      }
+      if (customTo) {
+        // Inclusive of the end date, so picking a single day is not empty
+        const to = new Date(customTo);
+        to.setHours(23, 59, 59, 999);
+        tasks = tasks.filter((t) => new Date(t.created) <= to);
+      }
+    } else if (dateStart) {
       tasks = tasks.filter((t) => new Date(t.created) >= dateStart);
+    }
+
+    // Filter by project
+    if (filterProject !== "all") {
+      tasks = tasks.filter((t) => t.projectId === filterProject);
     }
 
     // Filter by sprint
@@ -154,6 +178,12 @@
     { value: "month", label: $_("reports.lastMonth") },
     { value: "quarter", label: $_("reports.lastQuarter") },
     { value: "year", label: $_("reports.lastYear") },
+    { value: "custom", label: $_("reports.customPeriod") },
+  ]);
+
+  let projectFilterOptions = $derived([
+    { value: "all", label: $_("reports.allProjects") },
+    ...projectStore.projects.map((p) => ({ value: p.id, label: p.name })),
   ]);
 
   // Helper to get selected label
@@ -936,12 +966,52 @@
       </Select.Root>
     </div>
 
+    <!-- Project Filter: reports are global, so this is opt-in -->
+    <div class="relative min-w-[150px]">
+      <Select.Root onValueChange={(v) => (filterProject = v)}>
+        <Select.Trigger class="h-9 text-sm bg-muted">
+          {getSelectedLabel(projectFilterOptions, filterProject)}
+        </Select.Trigger>
+        <Select.Content>
+          {#each projectFilterOptions as option}
+            <Select.Item value={option.value}>{option.label}</Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
+    </div>
+
+    <!-- Free period, replacing the fixed ranges when chosen -->
+    {#if filterDateRange === "custom"}
+      <div class="flex items-center gap-2">
+        <input
+          type="date"
+          bind:value={customFrom}
+          class="h-9 rounded-lg border border-input bg-muted px-2 text-sm text-foreground outline-none focus:border-primary"
+          aria-label={$_("reports.from")}
+        />
+        <span class="text-xs text-muted-foreground">{$_("reports.to")}</span>
+        <input
+          type="date"
+          bind:value={customTo}
+          class="h-9 rounded-lg border border-input bg-muted px-2 text-sm text-foreground outline-none focus:border-primary"
+          aria-label={$_("reports.to")}
+        />
+      </div>
+    {/if}
+
     <!-- Clear Filters -->
     {#if activeFilterCount > 0}
       <button
         type="button"
         class="px-3 py-1.5 text-sm rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-colors"
-        onclick={() => { filterDateRange = "all"; filterSprint = "all"; filterMember = "all"; }}
+        onclick={() => {
+          filterDateRange = "all";
+          filterSprint = "all";
+          filterMember = "all";
+          filterProject = "all";
+          customFrom = "";
+          customTo = "";
+        }}
       >
         {$_("tasks.clearFilters")}
       </button>
@@ -1517,5 +1587,57 @@
         </div>
       {/if}
     {/if}
+    <!-- The tasks behind the numbers. Every chart above summarises this exact
+         set, so a total that looks wrong can be traced to the rows causing it. -->
+    <section class="pt-2">
+      <div class="mb-3 flex items-baseline justify-between gap-3">
+        <h3 class="text-sm font-semibold text-foreground">{$_("reports.taskList")}</h3>
+        <span class="text-xs text-muted-foreground">
+          {filteredTasks().length}
+          {$_("reports.tasks")}
+        </span>
+      </div>
+
+      {#if filteredTasks().length === 0}
+        <p class="py-8 text-center text-sm text-muted-foreground">{$_("reports.noTasks")}</p>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr class="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th class="py-2 pr-3 font-medium">{$_("reports.colTask")}</th>
+                <th class="py-2 pr-3 font-medium">{$_("reports.colStatus")}</th>
+                <th class="py-2 pr-3 font-medium">{$_("reports.colAssignee")}</th>
+                <th class="py-2 pr-3 font-medium">{$_("reports.colSprint")}</th>
+                <th class="py-2 pr-3 text-right font-medium">{$_("reports.colPoints")}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              {#each filteredTasks() as task (task.id)}
+                <tr class="hover:bg-muted/40">
+                  <td class="py-2 pr-3 text-foreground">{task.title}</td>
+                  <td class="py-2 pr-3">
+                    <span
+                      class="rounded px-1.5 py-0.5 text-xs {task.status === 'DONE'
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-muted text-muted-foreground'}"
+                    >
+                      {task.status}
+                    </span>
+                  </td>
+                  <td class="py-2 pr-3 text-muted-foreground">{task.asign || "-"}</td>
+                  <td class="py-2 pr-3 text-muted-foreground">
+                    {allSprints.find((s) => s.id === task.sprintId)?.name || $_("reports.backlog")}
+                  </td>
+                  <td class="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                    {pts(task)}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    </section>
   </div>
 </main>
