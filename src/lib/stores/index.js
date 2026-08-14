@@ -195,52 +195,68 @@ function migrateDefaultProject() {
   const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
   const existing = read(STORAGE_KEYS.projects);
-  // Only ever runs once: as soon as a project exists, this is a no-op forever
-  if (Array.isArray(existing) && existing.length > 0) return false;
+  const hasProjects = Array.isArray(existing) && existing.length > 0;
 
-  const now = new Date().toISOString();
-  const project = {
-    id: crypto.randomUUID(),
-    name: "Main Project",
-    description: "Everything that existed before projects were introduced.",
-    color: "#2dd4bf",
-    status: "active",
-    origin: "migration",
-    created: now,
-    updated: now,
-  };
+  // Adopt into the first project when one already exists. Creating a project
+  // by hand before upgrading used to leave every pre-existing task orphaned,
+  // because this bailed out the moment any project was present.
+  let project;
+  if (hasProjects) {
+    project = existing[0];
+  } else {
+    const now = new Date().toISOString();
+    project = {
+      id: crypto.randomUUID(),
+      name: "Main Project",
+      description: "Everything that existed before projects were introduced.",
+      color: "#2dd4bf",
+      status: "active",
+      origin: "migration",
+      created: now,
+      updated: now,
+    };
+    write(STORAGE_KEYS.projects, [project]);
+  }
 
-  write(STORAGE_KEYS.projects, [project]);
+  let changed = !hasProjects;
 
-  // Adopt every sprint and task that has no project yet
+  // Adopt every sprint and task that has no project yet. Only writes when
+  // something actually moves, so a settled install does nothing on each boot.
   for (const key of [STORAGE_KEYS.sprints, STORAGE_KEYS.tasks]) {
     const rows = read(key);
     if (!Array.isArray(rows) || rows.length === 0) continue;
-    write(
-      key,
-      rows.map((row) =>
-        row && typeof row === "object" && !row.projectId
-          ? { ...row, projectId: project.id }
-          : row
-      )
-    );
+
+    let touched = false;
+    const next = rows.map((row) => {
+      if (!row || typeof row !== "object" || row.projectId) return row;
+      touched = true;
+      return { ...row, projectId: project.id };
+    });
+
+    if (touched) {
+      write(key, next);
+      changed = true;
+    }
   }
 
   // People carry a membership list rather than one id - the same person is
   // normally on several projects
   const users = read(STORAGE_KEYS.users);
   if (Array.isArray(users) && users.length > 0) {
-    write(
-      STORAGE_KEYS.users,
-      users.map((user) =>
-        user && typeof user === "object" && !Array.isArray(user.projectIds)
-          ? { ...user, projectIds: [project.id] }
-          : user
-      )
-    );
+    let touched = false;
+    const next = users.map((user) => {
+      if (!user || typeof user !== "object" || Array.isArray(user.projectIds)) return user;
+      touched = true;
+      return { ...user, projectIds: [project.id] };
+    });
+
+    if (touched) {
+      write(STORAGE_KEYS.users, next);
+      changed = true;
+    }
   }
 
-  return true;
+  return changed;
 }
 
 /**

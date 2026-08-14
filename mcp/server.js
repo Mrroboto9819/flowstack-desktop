@@ -73,6 +73,17 @@ function findSprint(data, ref) {
   );
 }
 
+function findProject(data, ref) {
+  if (!ref) return null;
+  const rows = data.projects || [];
+  return (
+    rows.find((p) => p.id === ref) ||
+    rows.find((p) => p.id.startsWith(ref)) ||
+    rows.find((p) => (p.name || "").toLowerCase() === String(ref).toLowerCase()) ||
+    null
+  );
+}
+
 function findUser(data, ref) {
   if (!ref) return null;
   const full = (u) => `${u.name || ""} ${u.lastname || ""}`.trim().toLowerCase();
@@ -487,6 +498,144 @@ const TOOLS = {
         return data;
       });
       return { deleted: args.id, tasksMovedToBacklog: moved, backup };
+    },
+  },
+
+  list_projects: {
+    description:
+      "List projects with their sprint and task counts. Projects are the top of the hierarchy - sprints and tasks belong to one.",
+    schema: { type: "object", properties: {} },
+    run() {
+      requireAccess("read");
+      const { data } = store.read();
+      return (data.projects || []).map((p) => {
+        const tasks = data.tasks.filter((t) => t.projectId === p.id);
+        const done = tasks.filter((t) => t.status === "DONE");
+        return {
+          id: p.id.slice(0, 8),
+          name: p.name,
+          slogan: p.slogan || null,
+          status: p.status,
+          sprints: (data.sprints || []).filter((s) => s.projectId === p.id).length,
+          tasks: tasks.length,
+          done: done.length,
+          points: tasks.reduce((a, t) => a + points(t), 0),
+        };
+      });
+    },
+  },
+
+  create_project: {
+    description: "Create a project. Sprints and tasks can then be assigned to it.",
+    schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        slogan: { type: "string", description: "Short tagline shown under the name" },
+        description: { type: "string" },
+        color: { type: "string", description: "Hex colour, e.g. #2dd4bf" },
+      },
+      required: ["name"],
+    },
+    run(args) {
+      requireAccess("write");
+      let created = null;
+
+      store.mutate((data) => {
+        if (!data.projects) data.projects = [];
+        const now = new Date().toISOString();
+        created = {
+          id: newId(),
+          name: args.name,
+          slogan: args.slogan || "",
+          description: args.description || "",
+          color: args.color || "#2dd4bf",
+          image: null,
+          status: "active",
+          origin: "mcp",
+          created: now,
+          updated: now,
+        };
+        data.projects.push(created);
+        return data;
+      });
+
+      return { created: created.name, id: created.id };
+    },
+  },
+
+  update_project: {
+    description: "Change a project's name, slogan, description, colour or status.",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Project id, short prefix or name" },
+        name: { type: "string" },
+        slogan: { type: "string" },
+        description: { type: "string" },
+        color: { type: "string" },
+        status: { type: "string", enum: ["active", "archived"] },
+      },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("write");
+      let result = null;
+
+      store.mutate((data) => {
+        const project = findProject(data, args.id);
+        if (!project) throw new Error(`no project matching "${args.id}"`);
+
+        for (const field of ["name", "slogan", "description", "color", "status"]) {
+          if (args[field] !== undefined) project[field] = args[field];
+        }
+        project.updated = new Date().toISOString();
+        result = { updated: project.name };
+        return data;
+      });
+
+      return result;
+    },
+  },
+
+  delete_project: {
+    description:
+      "Delete a project. Its sprints and tasks are kept but unassigned, never deleted - say so in your summary.",
+    schema: {
+      type: "object",
+      properties: { id: { type: "string", description: "Project id, short prefix or name" } },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("delete");
+      let result = null;
+
+      store.mutate((data) => {
+        const project = findProject(data, args.id);
+        if (!project) throw new Error(`no project matching "${args.id}"`);
+
+        let sprints = 0;
+        for (const sprint of data.sprints || []) {
+          if (sprint.projectId === project.id) {
+            sprint.projectId = null;
+            sprints += 1;
+          }
+        }
+
+        let tasks = 0;
+        for (const task of data.tasks || []) {
+          if (task.projectId === project.id) {
+            task.projectId = null;
+            tasks += 1;
+          }
+        }
+
+        data.projects = (data.projects || []).filter((p) => p.id !== project.id);
+        result = { deleted: project.name, sprintsUnassigned: sprints, tasksUnassigned: tasks };
+        return data;
+      });
+
+      return result;
     },
   },
 
