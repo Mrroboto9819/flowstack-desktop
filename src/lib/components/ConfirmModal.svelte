@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AlertTriangle, X } from "lucide-svelte";
+  import { AlertTriangle, X } from "$lib/icons";
   import type { Snippet } from "svelte";
 
   let {

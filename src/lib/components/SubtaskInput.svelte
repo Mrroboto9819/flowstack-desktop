@@ -1,5 +1,5 @@
 <script>
-  import { Plus, X, Check } from "lucide-svelte";
+  import { Plus, X, Check } from "$lib/icons";
 
   let {
     value = $bindable([]),

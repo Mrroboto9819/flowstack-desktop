@@ -9,7 +9,7 @@
     UserCheck,
     User,
     Users,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import { userStore, taskStore } from "../../lib/stores/index.js";
   import UserModal from "../../lib/components/UserModal.svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";

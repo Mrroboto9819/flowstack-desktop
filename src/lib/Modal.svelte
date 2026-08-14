@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X } from "lucide-svelte";
+  import { X } from "$lib/icons";
   import type { Snippet } from "svelte";
 
   let {

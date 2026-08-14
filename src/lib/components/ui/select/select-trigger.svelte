@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getContext } from "svelte";
-    import { ChevronDown } from "lucide-svelte";
+    import { ChevronDown } from "$lib/icons";
 
     let { class: className, children, ...rest } = $props();
 

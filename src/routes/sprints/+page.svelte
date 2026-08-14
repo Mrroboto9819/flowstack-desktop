@@ -13,7 +13,7 @@
     Eye,
     ChevronDown,
     AlertTriangle,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import {
     sprintStore,
     taskStore,

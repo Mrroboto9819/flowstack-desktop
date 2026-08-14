@@ -1,7 +1,7 @@
 <script lang="ts">
   import "../app.css";
   import { onMount, type Snippet } from "svelte";
-  import { Minus, Square, X, Moon, Sun, Download } from "lucide-svelte";
+  import { Minus, Square, X, Moon, Sun, Download } from "$lib/icons";
   import ToastContainer from "../lib/ToastContainer.svelte";
   import Sidebar from "../lib/components/Sidebar.svelte";
   import UpdateScreen from "../lib/UpdateScreen.svelte";

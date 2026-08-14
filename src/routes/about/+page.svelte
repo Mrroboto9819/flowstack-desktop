@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Heart, Github, Globe, Coffee, ExternalLink } from "lucide-svelte";
+  import { Heart, Github, Globe, Coffee, ExternalLink } from "$lib/icons";
   import { _ } from "$lib/i18n";
 
   // App version from Vite define

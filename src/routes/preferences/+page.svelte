@@ -13,7 +13,7 @@
     Download,
     Upload,
     Database,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import { onMount } from "svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
   import {

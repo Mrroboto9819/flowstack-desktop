@@ -1,5 +1,5 @@
 <script>
-  import { Plus, Heading, User, Mail, Briefcase } from "lucide-svelte";
+  import { Plus, Heading, User, Mail, Briefcase } from "$lib/icons";
   import Modal from "../Modal.svelte";
   import Select from "../Select.svelte";
   import { userStore } from "../stores/index.js";

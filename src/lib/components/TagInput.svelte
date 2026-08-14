@@ -1,5 +1,5 @@
 <script>
-  import { Tag, X } from "lucide-svelte";
+  import { Tag, X } from "$lib/icons";
   import { tagStore } from "../stores/index.js";
 
   let {

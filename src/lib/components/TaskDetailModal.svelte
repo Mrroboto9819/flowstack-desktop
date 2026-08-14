@@ -1,5 +1,5 @@
 <script>
-  import { X, Pencil, Trash2, Calendar, User, Target, Tag, Clock, Hash, AlertCircle, Activity, Layers3, CheckCircle2, AlertTriangle, ListTodo, Check, Link2, Copy } from "lucide-svelte";
+  import { X, Pencil, Trash2, Calendar, User, Target, Tag, Clock, Hash, AlertCircle, Activity, Layers3, CheckCircle2, AlertTriangle, ListTodo, Check, Link2, Copy } from "$lib/icons";
   import { marked } from "marked";
   import { sprintStore, taskStore, settingsStore } from "../stores/index.js";
   import { toastStore } from "../toastStore.svelte.js";

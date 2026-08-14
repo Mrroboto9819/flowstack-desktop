@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { CheckCircle, AlertCircle, Info, X } from "lucide-svelte";
+  import { CheckCircle, AlertCircle, Info, X } from "$lib/icons";
   import { fade, fly } from "svelte/transition";
 
   let {

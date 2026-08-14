@@ -1,5 +1,5 @@
 <script>
-  import { Play, Pause, RotateCcw, Timer } from "lucide-svelte";
+  import { Play, Pause, RotateCcw, Timer } from "$lib/icons";
   import { onMount } from "svelte";
 
   let {

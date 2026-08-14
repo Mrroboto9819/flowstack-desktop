@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { X } from "lucide-svelte";
+    import { X } from "$lib/icons";
     // We need to access the 'open' state from parent Root.
     // Ideally we'd use context, but for simplicity in this file-based structure and the user's usage pattern (bind:open on Root),
     // the Content is conditionally rendered by Root's if block, so it mounts when open.

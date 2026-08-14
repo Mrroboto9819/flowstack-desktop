@@ -24,6 +24,7 @@
     "gsap": "^3.14.2",
     "lucide-svelte": "^0.562.0",
     "marked": "^17.0.1",
+    "phosphor-svelte": "^3.1.0",
     "svelte-dnd-action": "^0.9.69",
     "svelte-i18n": "^4.0.1"
   },

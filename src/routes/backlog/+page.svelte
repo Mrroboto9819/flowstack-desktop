@@ -1,5 +1,5 @@
 <script>
-  import { Plus, Pencil, Target, TrendingUp, Eye, Layers3 } from "lucide-svelte";
+  import { Plus, Pencil, Target, TrendingUp, Eye, Layers3 } from "$lib/icons";
   import { taskStore, sprintStore } from "../../lib/stores/index.js";
   import TaskModal from "../../lib/components/TaskModal.svelte";
   import TaskDetailModal from "../../lib/components/TaskDetailModal.svelte";

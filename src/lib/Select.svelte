@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown, Check } from "lucide-svelte";
+  import { ChevronDown, Check } from "$lib/icons";
   import { clickOutside } from "./clickOutside.js";
 
   let {

@@ -1,5 +1,5 @@
 <script>
-  import { Plus, Heading, FileText, Type, Hash, AlertCircle, Target, Tag, User, Activity, Layers3, Clock, CheckCircle2, Eye, ListTodo, Link2, X } from "lucide-svelte";
+  import { Plus, Heading, FileText, Type, Hash, AlertCircle, Target, Tag, User, Activity, Layers3, Clock, CheckCircle2, Eye, ListTodo, Link2, X } from "$lib/icons";
   import Modal from "../Modal.svelte";
   import Switch from "../Switch.svelte";
   import Select from "../Select.svelte";

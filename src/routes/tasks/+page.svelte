@@ -21,7 +21,7 @@
     Upload,
     ChevronDown,
     SlidersHorizontal,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import { taskStore, userStore, statusStore, settingsStore, sprintStore } from "../../lib/stores/index.js";
   import TaskModal from "../../lib/components/TaskModal.svelte";
   import TaskDetailModal from "../../lib/components/TaskDetailModal.svelte";

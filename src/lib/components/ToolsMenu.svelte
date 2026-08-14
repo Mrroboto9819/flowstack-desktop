@@ -1,5 +1,5 @@
 <script>
-  import { Wrench, ChevronDown } from "lucide-svelte";
+  import { Wrench, ChevronDown } from "$lib/icons";
   import { clickOutside } from "../clickOutside.js";
 
   /**

@@ -149,35 +149,66 @@ export async function initPersistence(options = {}) {
     }
   }
 
-  await startWatching(fs, file);
+  await startWatching(fs, dir, file);
   return { backend, migrated, file };
 }
 
-/** Re-hydrate when something else (the MCP server) rewrites the file. */
-async function startWatching(fs, file) {
-  if (typeof fs.watch !== "function" || !onExternalChange) return;
+/**
+ * Pull in a newer revision written by something else (the MCP server).
+ * Returns true when the in-memory cache actually moved forward.
+ */
+async function adoptIfNewer(fs, file) {
   try {
-    await fs.watch(
-      file,
-      async () => {
-        try {
-          const parsed = parseSnapshot(await fs.readTextFile(file));
-          // Only react to revisions we did not write ourselves
-          if (parsed.ok && (parsed.snapshot.revision || 0) > revision) {
-            cache = parsed.snapshot.data;
-            revision = parsed.snapshot.revision || 0;
-            writeCacheToLocalStorage();
-            onExternalChange();
-          }
-        } catch {
-          // a half-written file will fire again on the next event
-        }
-      },
-      { delayMs: 250 }
-    );
-  } catch (error) {
-    console.warn("File watching unavailable; external changes need a restart:", error);
+    const parsed = parseSnapshot(await fs.readTextFile(file));
+    // Only react to revisions we did not write ourselves
+    if (parsed.ok && (parsed.snapshot.revision || 0) > revision) {
+      cache = parsed.snapshot.data;
+      revision = parsed.snapshot.revision || 0;
+      writeCacheToLocalStorage();
+      onExternalChange();
+      return true;
+    }
+  } catch {
+    // a half-written file will fire again on the next event
   }
+  return false;
+}
+
+/**
+ * Re-hydrate when something else rewrites the file.
+ *
+ * Watches the *directory*, not the file. The MCP server writes atomically
+ * (temp file + rename), which swaps the inode out from under a file-level
+ * watch - that watch then goes deaf after the very first external change.
+ * A directory watch keeps firing because the directory itself is never
+ * replaced. A slow revision poll backs it up in case the platform delivers
+ * no event at all.
+ */
+async function startWatching(fs, dir, file) {
+  if (!onExternalChange) return;
+
+  if (typeof fs.watch === "function") {
+    try {
+      await fs.watch(
+        dir,
+        async (event) => {
+          const paths = Array.isArray(event?.paths) ? event.paths : [];
+          // Ignore churn from the backups/ subfolder and the temp write file
+          if (paths.length && !paths.some((p) => p.endsWith(SNAPSHOT_FILENAME))) return;
+          await adoptIfNewer(fs, file);
+        },
+        { delayMs: 250, recursive: false }
+      );
+    } catch (error) {
+      console.warn("Directory watching unavailable, falling back to polling:", error);
+    }
+  }
+
+  // Backstop: a read costs well under a millisecond, so a slow poll is far
+  // cheaper than a board that silently stops updating.
+  setInterval(() => {
+    adoptIfNewer(fs, file);
+  }, 4000);
 }
 
 /**

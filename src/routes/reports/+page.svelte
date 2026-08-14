@@ -18,7 +18,7 @@
     BarChart2,
     ArrowRightLeft,
     Undo2,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import { onMount, onDestroy } from "svelte";
   import { Chart, registerables } from "chart.js";
   import { sprintStore, taskStore, userStore, settingsStore } from "../../lib/stores/index.js";

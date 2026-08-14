@@ -5,7 +5,7 @@
     Layers3,
     Calendar,
     KanbanSquare,
-  } from "lucide-svelte";
+  } from "$lib/icons";
 
   let {
     icon = "inbox",

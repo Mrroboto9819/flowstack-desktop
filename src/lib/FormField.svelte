@@ -1,5 +1,5 @@
 <script>
-  import { AlertCircle } from "lucide-svelte";
+  import { AlertCircle } from "$lib/icons";
 
   let {
     label = "",

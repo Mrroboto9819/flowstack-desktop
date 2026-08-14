@@ -13,7 +13,7 @@
     Lock,
     Plug,
     Copy,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import { dndzone } from "svelte-dnd-action";
   import { flip } from "svelte/animate";
   import { statusStore, tagStore, taskStore, settingsStore, persistenceInfo } from "../../lib/stores/index.js";

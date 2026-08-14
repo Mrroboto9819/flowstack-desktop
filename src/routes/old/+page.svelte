@@ -34,7 +34,7 @@
     ChevronLeft,
     ChevronRight,
     Settings,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import { marked } from "marked";
   import Modal from "../../lib/Modal.svelte";
   import Switch from "../../lib/Switch.svelte";

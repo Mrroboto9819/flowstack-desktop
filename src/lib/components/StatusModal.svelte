@@ -1,5 +1,5 @@
 <script>
-  import { Plus, Heading, Palette } from "lucide-svelte";
+  import { Plus, Heading, Palette } from "$lib/icons";
   import Modal from "../Modal.svelte";
   import { statusStore } from "../stores/index.js";
 

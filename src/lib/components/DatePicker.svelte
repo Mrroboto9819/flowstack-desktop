@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Calendar, ChevronLeft, ChevronRight } from "lucide-svelte";
+  import { Calendar, ChevronLeft, ChevronRight } from "$lib/icons";
   import { clickOutside } from "../clickOutside.js";
   import { tick } from "svelte";
 

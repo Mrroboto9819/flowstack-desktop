@@ -16,7 +16,7 @@
     SlidersHorizontal,
     BarChart3,
     Info,
-  } from "lucide-svelte";
+  } from "$lib/icons";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { currentUserStore, settingsStore } from "../stores/index.js";

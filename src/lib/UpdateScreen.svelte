@@ -1,6 +1,6 @@
 <script>
   import { fade } from "svelte/transition";
-  import { Download, X } from "lucide-svelte";
+  import { Download, X } from "$lib/icons";
 
   let {
     visible = false,

@@ -1,5 +1,5 @@
 <script>
-  import { Plus, Heading, Target, Calendar, Activity, Eye, FileText } from "lucide-svelte";
+  import { Plus, Heading, Target, Calendar, Activity, Eye, FileText } from "$lib/icons";
   import Modal from "../Modal.svelte";
   import Select from "../Select.svelte";
   import DatePicker from "./DatePicker.svelte";

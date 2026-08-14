@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getContext } from "svelte";
-    import { Check } from "lucide-svelte";
+    import { Check } from "$lib/icons";
 
     let { value, class: className, children } = $props();
 

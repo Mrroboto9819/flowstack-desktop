@@ -1,5 +1,5 @@
 <script>
-  import { Plus, Tag, Palette } from "lucide-svelte";
+  import { Plus, Tag, Palette } from "$lib/icons";
   import Modal from "../Modal.svelte";
   import { tagStore } from "../stores/index.js";
 
