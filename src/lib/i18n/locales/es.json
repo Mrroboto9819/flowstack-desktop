@@ -527,6 +527,8 @@
     "doneLabel": "hechas",
     "editing": "Editando proyecto",
     "empty": "Aún no hay proyectos. Crea uno para empezar.",
+    "gateBody": "Las tareas y los sprints pertenecen a un proyecto, así que necesitas uno antes de añadir trabajo. Es rápido.",
+    "gateTitle": "Crea un proyecto primero",
     "image": "Imagen",
     "imageInvalid": "Ese archivo no es una imagen",
     "imageTooLarge": "La imagen debe pesar menos de 512 KB",

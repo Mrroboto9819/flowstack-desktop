@@ -527,6 +527,8 @@
     "doneLabel": "done",
     "editing": "Editing project",
     "empty": "No projects yet. Create one to get started.",
+    "gateBody": "Tasks and sprints belong to a project, so there needs to be one before you can add work. It takes a moment.",
+    "gateTitle": "Create a project first",
     "image": "Image",
     "imageInvalid": "That file is not an image",
     "imageTooLarge": "Image must be under 512 KB",

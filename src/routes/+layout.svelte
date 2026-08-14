@@ -4,11 +4,13 @@
   import { Minus, Square, X, Moon, Sun, Download } from "$lib/icons";
   import ToastContainer from "../lib/ToastContainer.svelte";
   import Sidebar from "../lib/components/Sidebar.svelte";
+  import ProjectGate from "../lib/components/ProjectGate.svelte";
   import UpdateScreen from "../lib/UpdateScreen.svelte";
   import ConfirmModal from "../lib/components/ConfirmModal.svelte";
   import LanguageSelector from "../lib/components/LanguageSelector.svelte";
-  import { initApp, clearAllStores, sprintStore } from "../lib/stores/index.js";
+  import { initApp, clearAllStores, sprintStore, projectStore } from "../lib/stores/index.js";
   import { appState } from "../lib/stores/app.svelte.js";
+  import { page } from "$app/stores";
   import SplashScreen from "../lib/components/SplashScreen.svelte";
   import { _ } from "$lib/i18n";
 
@@ -20,6 +22,15 @@
   let isMac = $state(false);
   let isLinux = $state(false);
   let sidebarCollapsed = $state(false);
+
+  // Routes whose content only makes sense inside a project. Everything else
+  // (projects, team, reports, settings) stays reachable so there is always a
+  // way to create the first one.
+  const PROJECT_SCOPED = ["/tasks", "/backlog", "/sprints", "/sprint"];
+  let needsProject = $derived(
+    projectStore.projects.length === 0 &&
+      PROJECT_SCOPED.includes($page.url.pathname)
+  );
   let contentElement: HTMLElement | undefined = $state();
 
   // Update screen state
@@ -356,7 +367,11 @@
 
   <!-- Main Content -->
   <div bind:this={contentElement} class="app-body pl-64 overflow-y-auto">
-    {@render children()}
+    {#if needsProject}
+      <ProjectGate />
+    {:else}
+      {@render children()}
+    {/if}
   </div>
 
   <!-- Version Tag & Update Indicator -->
