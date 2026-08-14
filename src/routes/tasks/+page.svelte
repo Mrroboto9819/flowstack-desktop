@@ -91,6 +91,9 @@
   let filterStatus = $state("all");
   let filterSprint = $state("all");
   let filterTag = $state("");
+  // Free text over title and description. Separate from the tag filter so the
+  // two can be combined - "anything about invoicing, tagged backend".
+  let filterSearch = $state("");
   // Defaults to whoever this install is signed in as, so the board opens on
   // your own work. "all" whenever no team member is linked, otherwise a fresh
   // install would look empty.
@@ -148,6 +151,15 @@
     return task.assigneeId === filterAssignee;
   }
 
+  function matchesSearch(task) {
+    const needle = filterSearch.trim().toLowerCase();
+    if (!needle) return true;
+    return (
+      (task.title || "").toLowerCase().includes(needle) ||
+      (task.description || "").toLowerCase().includes(needle)
+    );
+  }
+
   function matchesTag(task) {
     if (!filterTag.trim()) return true;
     const needle = filterTag.trim().toLowerCase();
@@ -173,6 +185,7 @@
   let filteredTasks = $derived(
     allTasks.filter(
       (task) =>
+        matchesSearch(task) &&
         matchesArchived(task) &&
         matchesStatus(task) &&
         matchesSprint(task) &&
@@ -233,6 +246,7 @@
     // Clearing means "show everything", including other people's work
     filterAssignee = "all";
     showArchived = false;
+    filterSearch = "";
     filterTag = "";
     filterFrom = "";
     filterTo = "";
@@ -253,6 +267,7 @@
       const name = u ? `${u.name || ""} ${u.lastname || ""}`.trim() : filterAssignee;
       labels.push(`assignee: ${filterAssignee === "unassigned" ? "unassigned" : name}`);
     }
+    if (filterSearch.trim()) labels.push(`search: ${filterSearch.trim()}`);
     if (filterTag.trim()) labels.push(`tag: ${filterTag.trim()}`);
     if (filterFrom) labels.push(`from: ${filterFrom}`);
     if (filterTo) labels.push(`to: ${filterTo}`);
@@ -322,6 +337,7 @@
       filterSprint !== "all",
       filterAssignee !== "all",
       showArchived,
+      filterSearch.trim() !== "",
       filterTag.trim() !== "",
       filterFrom !== "",
       filterTo !== "",
@@ -475,6 +491,15 @@
             </div>
           </label>
         {/if}
+        <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {$_("tasks.filterSearch")}
+          <input
+            type="search"
+            class="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            placeholder={$_("tasks.filterSearchHint")}
+            bind:value={filterSearch}
+          />
+        </label>
         <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {$_("tasks.filterTag")}
           <input

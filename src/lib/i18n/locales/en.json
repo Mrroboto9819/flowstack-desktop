@@ -163,6 +163,8 @@
     "filterArchived": "Archived",
     "filterAssignee": "Assignee",
     "filterFrom": "From",
+    "filterSearch": "Search",
+    "filterSearchHint": "Title or description",
     "filterSprint": "Sprint",
     "filterStatus": "Status",
     "filterTag": "Tag",

@@ -163,6 +163,8 @@
     "filterArchived": "Archivadas",
     "filterAssignee": "Responsable",
     "filterFrom": "Desde",
+    "filterSearch": "Buscar",
+    "filterSearchHint": "Título o descripción",
     "filterSprint": "Sprint",
     "filterStatus": "Estado",
     "filterTag": "Etiqueta",
