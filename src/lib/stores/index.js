@@ -269,6 +269,14 @@ export function exportAllData() {
     }
   });
 
+  // Strip MCP permissions from exports: they are this machine's security
+  // posture, not portable board data, and a shared backup should never carry
+  // someone else's access grants.
+  if (exportData.data.settings && typeof exportData.data.settings === "object") {
+    exportData.data.settings = { ...exportData.data.settings };
+    delete exportData.data.settings.mcp;
+  }
+
   return exportData;
 }
 
@@ -344,10 +352,21 @@ async function processImportData(jsonText) {
       return false;
     }
 
+    // MCP permissions are a LOCAL security decision and never travel with data.
+    // Both directions matter: an import must not silently switch access off
+    // (a backup written before the setting existed carries settings: {}), and
+    // it must not be able to switch it ON either - otherwise importing a file
+    // someone sent you could grant that file's author write and delete access.
+    const localMcp = settingsStore.settings.mcp;
+
     // Data slices go through the persistence layer so they reach the file
     for (const slice of ["tasks", "users", "sprints", "statuses", "settings", "tags"]) {
       if (importData.data[slice] !== undefined) {
-        saveSlice(slice, importData.data[slice]);
+        const value =
+          slice === "settings"
+            ? { ...(importData.data.settings || {}), mcp: localMcp }
+            : importData.data[slice];
+        saveSlice(slice, value);
       }
     }
 
