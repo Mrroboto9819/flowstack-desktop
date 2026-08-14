@@ -208,6 +208,10 @@ const TOOLS = {
       properties: {
         status: { type: "string", description: "Board column, e.g. READY" },
         sprint: { type: "string", description: "Sprint name or id, or 'backlog' for unassigned" },
+        project: {
+          type: "string",
+          description: "Project name, id or short prefix. Omit for every project.",
+        },
         assignee: { type: "string", description: "User name or id" },
         tag: { type: "string" },
         blocked: { type: "boolean" },
@@ -220,6 +224,11 @@ const TOOLS = {
       requireAccess("read");
       const { data } = store.read();
       let rows = data.tasks;
+      if (args.project) {
+        const project = findProject(data, args.project);
+        if (!project) throw new Error(`no project matching "${args.project}"`);
+        rows = rows.filter((t) => t.projectId === project.id);
+      }
       if (args.status) rows = rows.filter((t) => t.status === args.status);
       if (args.sprint === "backlog") rows = rows.filter((t) => !t.sprintId);
       else if (args.sprint) {
@@ -391,6 +400,9 @@ const TOOLS = {
             const s = findSprint(data, args.sprint);
             if (!s) throw new Error(`no sprint matching "${args.sprint}"`);
             updates.sprintId = s.id;
+            // A task inside a sprint belongs to that sprint's project, so the
+            // two can never disagree - the same rule the app enforces
+            if (s.projectId) updates.projectId = s.projectId;
           }
         }
         if (args.assignee !== undefined) {
@@ -790,9 +802,21 @@ const TOOLS = {
           rol: u.rol,
         })),
         tags: data.tags.map((t) => t.name),
+        // Which project new work joins, and what else exists. Without this the
+        // model has no idea the board is partitioned at all.
+        activeProject: (() => {
+          const p = activeProject(data);
+          return p ? { id: p.id.slice(0, 8), name: p.name, slogan: p.slogan || null } : null;
+        })(),
+        projects: (data.projects || []).map((p) => ({
+          id: p.id.slice(0, 8),
+          name: p.name,
+          tasks: data.tasks.filter((t) => t.projectId === p.id).length,
+        })),
         totals: {
           tasks: data.tasks.length,
           backlog: data.tasks.filter((t) => !t.sprintId).length,
+          unassignedToProject: data.tasks.filter((t) => !t.projectId).length,
         },
       };
     },
@@ -899,6 +923,8 @@ const TOOLS = {
             const s = findSprint(data, args.sprint);
             if (!s) throw new Error(`no sprint matching "${args.sprint}"`);
             task.sprintId = s.id;
+            // Follow the sprint's project, as the app does
+            if (s.projectId) task.projectId = s.projectId;
           }
         }
         if (args.status !== undefined) {
