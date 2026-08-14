@@ -250,7 +250,8 @@
                 <!-- Avatar and Info -->
                 <div class="flex items-start gap-3 flex-1 min-w-0">
                   <div
-                    class="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary/30 text-primary flex items-center justify-center text-lg font-bold flex-shrink-0"
+                    class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
+                    style="background-color: {userStore.colorFor(user)}"
                   >
                     {getInitials(user.name, user.lastname)}
                   </div>

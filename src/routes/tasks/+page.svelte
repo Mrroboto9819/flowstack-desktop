@@ -670,7 +670,10 @@
                       <div class="flex items-center gap-2 min-w-0">
                         {#if task.asign}
                           <div
-                            class="h-6 w-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-[10px] font-bold text-primary uppercase flex-shrink-0"
+                            class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold uppercase text-white"
+                            style="background-color: {userStore.colorFor(
+                              userStore.getById(task.assigneeId) || { id: task.asign }
+                            )}"
                             title={task.asign}
                           >
                             {task.asign[0]}

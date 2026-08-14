@@ -1,8 +1,9 @@
 <script>
-  import { Plus, Heading, User, Mail, Briefcase } from "$lib/icons";
+  import { Plus, Heading, User, Mail, Briefcase, Palette } from "$lib/icons";
   import Modal from "../Modal.svelte";
   import Select from "../Select.svelte";
   import { userStore } from "../stores/index.js";
+  import { MEMBER_COLORS } from "../stores/users.svelte.js";
 
   let {
     open = $bindable(false),
@@ -16,6 +17,7 @@
     lastname: "",
     email: "",
     rol: "",
+    color: MEMBER_COLORS[0],
   });
 
   // Select component options
@@ -40,6 +42,7 @@
           lastname: user.lastname || "",
           email: user.email || "",
           rol: user.rol || "",
+          color: userStore.colorFor(user),
         };
       } else {
         formData = {
@@ -48,6 +51,7 @@
           lastname: "",
           email: "",
           rol: "",
+          color: MEMBER_COLORS[userStore.users.length % MEMBER_COLORS.length],
         };
       }
     }
@@ -66,6 +70,7 @@
       lastname: formData.lastname.trim(),
       email: formData.email.trim(),
       rol: formData.rol.trim(),
+      color: formData.color,
     };
 
     if (mode === "edit" && formData.id) {
@@ -137,6 +142,37 @@
         />
       </div>
     </label>
+
+    <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div class="mb-1 flex items-center gap-2">
+        <Palette size={14} class="text-muted-foreground" />
+        Colour
+      </div>
+      <div class="mt-2 flex items-center gap-3">
+        <span
+          class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+          style="background-color: {formData.color}"
+        >
+          {(formData.name || "?").charAt(0).toUpperCase()}{(formData.lastname || "")
+            .charAt(0)
+            .toUpperCase()}
+        </span>
+        <div class="flex flex-wrap gap-2">
+          {#each MEMBER_COLORS as swatch}
+            <button
+              type="button"
+              onclick={() => (formData.color = swatch)}
+              class="h-7 w-7 rounded-full ring-offset-2 ring-offset-background transition-all {formData.color ===
+              swatch
+                ? 'ring-2 ring-primary'
+                : ''}"
+              style="background-color: {swatch}"
+              aria-label={swatch}
+            ></button>
+          {/each}
+        </div>
+      </div>
+    </div>
   </form>
 {/snippet}
 

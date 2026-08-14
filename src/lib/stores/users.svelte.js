@@ -6,6 +6,23 @@ import { toastStore } from "../toastStore.svelte.js";
 import { load as loadSlice, save as saveSlice } from "../persistence.js";
 import { projectStore } from "./projects.svelte.js";
 
+/**
+ * Avatar colours. Picked to stay legible against white initials in both
+ * themes, and to be distinguishable from each other at avatar size.
+ */
+export const MEMBER_COLORS = [
+  "#2dd4bf", // teal
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#f97316", // orange
+  "#84cc16", // lime
+  "#06b6d4", // cyan
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#64748b", // slate
+];
+
 const STORAGE_KEY = "taskflow_users";
 
 let users = $state([]);
@@ -55,6 +72,8 @@ export const userStore = {
       // People are on many projects, so membership is a list. A new member
       // joins whatever project is currently in scope.
       projectIds: projectStore.currentId ? [projectStore.currentId] : [],
+      // Cycle the palette so consecutive members never collide
+      color: MEMBER_COLORS[users.length % MEMBER_COLORS.length],
       ...userData,
     };
 
@@ -62,6 +81,22 @@ export const userStore = {
     saveUsers();
     toastStore.success("Team member added");
     return user;
+  },
+
+  /**
+   * A member's avatar colour, with a stable fallback.
+   *
+   * Derived from the id rather than random, so a member who predates the
+   * field keeps the same colour on every load instead of changing on refresh.
+   *
+   * @param {any} user
+   */
+  colorFor(user) {
+    if (user?.color) return user.color;
+    const id = String(user?.id || "");
+    let hash = 0;
+    for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+    return MEMBER_COLORS[hash % MEMBER_COLORS.length];
   },
 
   /** Add or remove this member from a project. */
