@@ -47,7 +47,10 @@ async function tauriFs() {
     const path = await import("@tauri-apps/api/path");
     // Throws outside Tauri, which is exactly how we detect the environment
     const dir = await path.appDataDir();
-    return { fs, dir };
+    // appDataDir() has NO trailing separator - join() rather than string
+    // concatenation, or the path lands beside the data dir instead of inside it
+    // (and outside the fs scope, so the write is denied)
+    return { fs, dir, join: path.join };
   } catch {
     return null;
   }
@@ -109,8 +112,8 @@ export async function initPersistence(options = {}) {
   }
 
   backend = "tauri";
-  const { fs, dir } = tauri;
-  const file = `${dir}${SNAPSHOT_FILENAME}`;
+  const { fs, dir, join } = tauri;
+  const file = await join(dir, SNAPSHOT_FILENAME);
 
   let migrated = false;
   let onDisk = null;
@@ -233,8 +236,8 @@ export async function flushNow() {
   const tauri = await tauriFs();
   if (!tauri) return false;
 
-  const { fs, dir } = tauri;
-  const file = `${dir}${SNAPSHOT_FILENAME}`;
+  const { fs, dir, join } = tauri;
+  const file = await join(dir, SNAPSHOT_FILENAME);
   const tmp = `${file}.tmp`;
 
   revision += 1;
