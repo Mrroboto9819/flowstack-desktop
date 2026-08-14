@@ -73,6 +73,19 @@ function findSprint(data, ref) {
   );
 }
 
+/**
+ * The project new work belongs to.
+ *
+ * The app marks it with `isActive` precisely so this process can see it -
+ * the UI's own selection lives in localStorage, which no other process can
+ * read. Falls back to the only/first project so a board that predates the
+ * flag still behaves sensibly.
+ */
+function activeProject(data) {
+  const rows = data.projects || [];
+  return rows.find((p) => p.isActive) || rows[0] || null;
+}
+
 function findProject(data, ref) {
   if (!ref) return null;
   const rows = data.projects || [];
@@ -297,8 +310,15 @@ const TOOLS = {
         if (args.sprint && !sprint) throw new Error(`no sprint matching "${args.sprint}"`);
         if (args.assignee && !user) throw new Error(`no user matching "${args.assignee}"`);
 
+        // A task in a sprint takes the sprint's project; otherwise it joins the
+        // active one. A task with no project at all is unreachable in the
+        // project-scoped views, so never leave it unset.
+        const project = activeProject(data);
+        const projectId = sprint?.projectId || project?.id || null;
+
         const task = {
           id: newId(),
+          projectId,
           title: args.title.trim(),
           description: args.description || "",
           status: args.status || "BACKLOG",
@@ -463,6 +483,8 @@ const TOOLS = {
         }
         data.sprints.push({
           id: newId(),
+          // Same rule as create_task: sprints belong to the active project
+          projectId: activeProject(data)?.id || null,
           name: args.name.trim(),
           goal: args.goal || "",
           start: args.start || "",
@@ -1543,6 +1565,8 @@ rl.on("line", (line) => {
         // rules plus the board's live configuration.
         instructions: [
           "FlowStack is a local sprint and task board. Call describe_workspace first: it returns these rules together with the board's actual configuration (methodology, columns, sprints, team, tags).",
+          "",
+          "Projects: the top of the hierarchy. Sprints and tasks each belong to exactly one, via projectId. The app works in one project at a time and marks it isActive - tasks and sprints you create join it automatically, so you rarely set projectId yourself. A record with no project is INVISIBLE in the app's project-scoped views, so never clear it. See list_projects.",
           "",
           "Sprints: planned -> active -> closed. Exactly ONE sprint may be active; activating another demotes the current one. Completing a sprint moves its unfinished tasks to the backlog so nothing is stranded.",
           "",

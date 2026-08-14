@@ -73,6 +73,13 @@ export const projectStore = {
   /** @param {string|null} id */
   setCurrent(id) {
     currentProjectId = id || null;
+
+    // Mirror the choice onto the records themselves. localStorage is invisible
+    // to any other process, so without this the MCP server has no way to know
+    // which project new work should belong to.
+    projects = projects.map((p) => ({ ...p, isActive: p.id === currentProjectId }));
+    saveProjects();
+
     if (typeof localStorage === "undefined") return;
     if (currentProjectId) localStorage.setItem(CURRENT_KEY, currentProjectId);
     else localStorage.removeItem(CURRENT_KEY);
@@ -112,14 +119,21 @@ export const projectStore = {
       projects = [];
     }
 
-    // Restore the scope, falling back to the first project rather than leaving
-    // a stale id pointing at a project that was deleted on another machine
+    // Restore the scope. The flag on the record wins over localStorage, since
+    // it travels with the data and is what the MCP server reads.
+    const flagged = projects.find((p) => p.isActive);
     const saved = localStorage.getItem(CURRENT_KEY);
-    if (saved && projects.some((p) => p.id === saved)) {
+
+    if (flagged) {
+      currentProjectId = flagged.id;
+      localStorage.setItem(CURRENT_KEY, currentProjectId);
+    } else if (saved && projects.some((p) => p.id === saved)) {
       currentProjectId = saved;
+      this.setCurrent(saved); // stamp the flag so the MCP can see it too
+    } else if (projects.length > 0) {
+      this.setCurrent(projects[0].id);
     } else {
-      currentProjectId = projects[0]?.id || null;
-      if (currentProjectId) localStorage.setItem(CURRENT_KEY, currentProjectId);
+      currentProjectId = null;
     }
   },
 

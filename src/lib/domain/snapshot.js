@@ -31,6 +31,14 @@ export function buildSnapshot(data, revision = 0) {
     revision,
     updatedAt: new Date().toISOString(),
     data: {
+      // Carry through anything this build does not know about.
+      //
+      // Without this the shape below acts as a whitelist, and a writer running
+      // older code silently deletes every slice added since it was started -
+      // which is exactly how a long-lived MCP server process wiped the whole
+      // projects array on its next write. Losing data to a version skew is far
+      // worse than persisting a key we cannot interpret.
+      ...data,
       tasks: data.tasks || [],
       sprints: data.sprints || [],
       projects: data.projects || [],
