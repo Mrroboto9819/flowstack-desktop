@@ -192,9 +192,10 @@
               <TaskTimer
                 taskId={task.id}
                 elapsedSeconds={task.elapsedSeconds || 0}
+                timerStartedAt={task.timerStartedAt || null}
                 isRunning={task.timerRunning || false}
                 onStart={(id) => taskStore.startTimer(id)}
-                onPause={(id, elapsed) => taskStore.pauseTimer(id, elapsed)}
+                onPause={(id) => taskStore.pauseTimer(id)}
                 onReset={(id) => taskStore.resetTimer(id)}
                 compact={false}
               />

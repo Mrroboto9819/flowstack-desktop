@@ -5,6 +5,8 @@
   let {
     taskId,
     elapsedSeconds = 0,
+    /** ISO timestamp of when the running session began; null when paused. */
+    timerStartedAt = null,
     isRunning = false,
     onStart = () => {},
     onPause = () => {},
@@ -12,32 +14,33 @@
     compact = false,
   } = $props();
 
-  let displaySeconds = $state(elapsedSeconds);
-  let intervalId = $state(null);
+  /**
+   * Wall-clock ticker.
+   *
+   * The display is DERIVED from `timerStartedAt`, never incremented. Counting
+   * +1 per interval tick lost time in two ways: a page reload restarted the
+   * count from the last banked value (so a running timer appeared to reset),
+   * and browsers throttle setInterval in background tabs, so it drifted behind
+   * real time even without a reload. `now` only exists to re-trigger the
+   * computation once a second.
+   */
+  let now = $state(Date.now());
 
-  // Update display when elapsed seconds changes
   $effect(() => {
-    displaySeconds = elapsedSeconds;
+    if (!isRunning) return;
+
+    now = Date.now();
+    const id = setInterval(() => {
+      now = Date.now();
+    }, 1000);
+    return () => clearInterval(id);
   });
 
-  // Handle timer updates when running
-  $effect(() => {
-    if (isRunning) {
-      intervalId = setInterval(() => {
-        displaySeconds += 1;
-      }, 1000);
-    } else {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
+  let displaySeconds = $derived.by(() => {
+    const banked = elapsedSeconds || 0;
+    if (!isRunning || !timerStartedAt) return banked;
+    const startedAt = new Date(timerStartedAt).getTime();
+    return banked + Math.max(0, Math.floor((now - startedAt) / 1000));
   });
 
   function formatTime(totalSeconds) {
@@ -56,12 +59,12 @@
   }
 
   function handlePause() {
-    onPause(taskId, displaySeconds);
+    // No elapsed value passed - the store computes it from timerStartedAt
+    onPause(taskId);
   }
 
   function handleReset() {
     onReset(taskId);
-    displaySeconds = 0;
   }
 </script>
 

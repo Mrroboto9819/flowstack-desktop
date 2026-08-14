@@ -354,18 +354,29 @@ export const taskStore = {
     toastStore.info("Timer started");
   },
 
-  pauseTimer(taskId, currentElapsed) {
+  /**
+   * Pause a timer and bank the time worked.
+   *
+   * The elapsed total is computed HERE from `timerStartedAt`, not taken from the
+   * caller. It used to trust a counter the component incremented once per
+   * second, which lost time two ways: a reload restarted that counter from the
+   * last banked value (so pausing wrote away everything since the timer
+   * started), and background tabs throttle setInterval, so it undercounted even
+   * without a reload. Wall-clock arithmetic is the only source of truth.
+   *
+   * @param {string} taskId
+   */
+  pauseTimer(taskId) {
     const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
+    if (!task || !task.timerRunning) return;
+
+    const banked = task.elapsedSeconds || 0;
+    const startedAt = task.timerStartedAt ? new Date(task.timerStartedAt).getTime() : Date.now();
+    const total = banked + Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
 
     tasks = tasks.map((t) =>
       t.id === taskId
-        ? {
-            ...t,
-            timerRunning: false,
-            elapsedSeconds: currentElapsed,
-            timerStartedAt: null,
-          }
+        ? { ...t, timerRunning: false, elapsedSeconds: total, timerStartedAt: null }
         : t
     );
     saveTasks();

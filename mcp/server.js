@@ -118,6 +118,36 @@ function findTask(data, ref) {
   return null;
 }
 
+/**
+ * Seconds on a task's clock right now, counting the in-flight session for a
+ * running timer. Mirrors the app's arithmetic so both agree on the number.
+ */
+function liveElapsed(task) {
+  const banked = task.elapsedSeconds || 0;
+  if (!task.timerRunning || !task.timerStartedAt) return banked;
+  const startedAt = new Date(task.timerStartedAt).getTime();
+  return banked + Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+}
+
+/** Stop a running timer and fold its session into elapsedSeconds. */
+function bankElapsed(task) {
+  if (!task.timerRunning) return 0;
+  const before = task.elapsedSeconds || 0;
+  const total = liveElapsed(task);
+  task.elapsedSeconds = total;
+  task.timerRunning = false;
+  task.timerStartedAt = null;
+  task.updated = new Date().toISOString();
+  return total - before;
+}
+
+const formatElapsed = (seconds) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+};
+
 /** One line per task - the cheap listing format. */
 const compactLine = (t, data) => [
   t.id.slice(0, 8),
@@ -304,6 +334,8 @@ const TOOLS = {
         blocker: { type: "string" },
         acceptance: { type: "string" },
         epic: { type: "string" },
+        type: { type: "string", enum: ["story", "bug", "task"] },
+        time: { type: "string", description: "Time estimate, e.g. 3h or 2d" },
       },
       required: ["id"],
     },
@@ -316,7 +348,7 @@ const TOOLS = {
         const old = found;
 
         const updates = {};
-        for (const f of ["title", "description", "status", "priority", "blocker", "acceptance", "epic"]) {
+        for (const f of ["title", "description", "status", "priority", "blocker", "acceptance", "epic", "type", "time"]) {
           if (args[f] !== undefined) updates[f] = args[f];
         }
         if (args.points !== undefined) updates.points = String(args.points);
@@ -1169,6 +1201,158 @@ const TOOLS = {
 
       const counts = Object.fromEntries(Object.entries(issues).map(([k, v]) => [k, v.length]));
       return { scope: args.sprint || "all tasks", openTasks: open.length, counts, issues };
+    },
+  },
+
+  // --- timers --------------------------------------------------------------
+
+  start_timer: {
+    description:
+      "Start the work timer on a task. Only one timer runs at a time, so any other running timer is paused first and its elapsed time banked — same rule the app enforces.",
+    schema: {
+      type: "object",
+      properties: { id: { type: "string", description: "Task id or short prefix" } },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("write");
+      let result = null;
+
+      store.mutate((data) => {
+        const task = findTask(data, args.id);
+        if (!task) throw new Error(`no task with id ${args.id}`);
+
+        const paused = [];
+        for (const other of data.tasks) {
+          if (other.timerRunning && other.id !== task.id) {
+            bankElapsed(other);
+            paused.push(`${other.id.slice(0, 8)} ${other.title}`);
+          }
+        }
+
+        if (!task.timerRunning) {
+          task.timerRunning = true;
+          task.timerStartedAt = new Date().toISOString();
+          task.elapsedSeconds = task.elapsedSeconds || 0;
+          task.updated = new Date().toISOString();
+        }
+
+        result = {
+          started: task.title,
+          pausedOthers: paused,
+          elapsed: formatElapsed(liveElapsed(task)),
+        };
+        return data;
+      });
+
+      return result;
+    },
+  },
+
+  stop_timer: {
+    description:
+      "Pause the timer on a task and bank the time worked. Omit the id to pause whichever timer is currently running.",
+    schema: {
+      type: "object",
+      properties: { id: { type: "string", description: "Task id or short prefix; omit for the running one" } },
+    },
+    run(args) {
+      requireAccess("write");
+      let result = null;
+
+      store.mutate((data) => {
+        const task = args.id
+          ? findTask(data, args.id)
+          : data.tasks.find((t) => t.timerRunning);
+
+        if (!task) {
+          throw new Error(args.id ? `no task with id ${args.id}` : "no timer is running");
+        }
+        if (!task.timerRunning) {
+          result = { alreadyStopped: task.title, elapsed: formatElapsed(task.elapsedSeconds || 0) };
+          return data;
+        }
+
+        const added = bankElapsed(task);
+        result = {
+          stopped: task.title,
+          thisSession: formatElapsed(added),
+          totalElapsed: formatElapsed(task.elapsedSeconds || 0),
+        };
+        return data;
+      });
+
+      return result;
+    },
+  },
+
+  reset_timer: {
+    description: "Reset a task's timer to zero, discarding the time logged against it.",
+    schema: {
+      type: "object",
+      properties: { id: { type: "string", description: "Task id or short prefix" } },
+      required: ["id"],
+    },
+    run(args) {
+      requireAccess("write");
+      let result = null;
+
+      store.mutate((data) => {
+        const task = findTask(data, args.id);
+        if (!task) throw new Error(`no task with id ${args.id}`);
+
+        result = { reset: task.title, discarded: formatElapsed(liveElapsed(task)) };
+        task.timerRunning = false;
+        task.timerStartedAt = null;
+        task.elapsedSeconds = 0;
+        task.updated = new Date().toISOString();
+        return data;
+      });
+
+      return result;
+    },
+  },
+
+  timer_status: {
+    description:
+      "What is being worked on right now, and the time logged per task. Read-only — running timers report live elapsed time without writing.",
+    schema: {
+      type: "object",
+      properties: {
+        sprint: { type: "string", description: "Limit the logged-time list to one sprint, or 'backlog'" },
+      },
+    },
+    run(args) {
+      requireAccess("read");
+      const { data } = store.read();
+
+      let rows = data.tasks;
+      if (args.sprint === "backlog") rows = rows.filter((t) => !t.sprintId);
+      else if (args.sprint) {
+        const s = findSprint(data, args.sprint);
+        if (!s) throw new Error(`no sprint matching "${args.sprint}"`);
+        rows = rows.filter((t) => t.sprintId === s.id);
+      }
+
+      const running = data.tasks.find((t) => t.timerRunning);
+      const logged = rows
+        .filter((t) => liveElapsed(t) > 0)
+        .sort((a, b) => liveElapsed(b) - liveElapsed(a))
+        .map((t) => `${t.id.slice(0, 8)} | ${formatElapsed(liveElapsed(t))} | ${t.title}${t.timerRunning ? " (running)" : ""}`);
+
+      return {
+        running: running
+          ? {
+              id: running.id.slice(0, 8),
+              title: running.title,
+              elapsed: formatElapsed(liveElapsed(running)),
+              since: running.timerStartedAt,
+            }
+          : null,
+        scope: args.sprint || "all tasks",
+        totalLogged: formatElapsed(rows.reduce((sum, t) => sum + liveElapsed(t), 0)),
+        tasksWithTime: logged,
+      };
     },
   },
 };
