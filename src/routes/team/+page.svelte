@@ -14,6 +14,8 @@
   import UserModal from "../../lib/components/UserModal.svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
   import { _ } from "$lib/i18n";
+  import Skeleton from "../../lib/components/Skeleton.svelte";
+  import { appState } from "../../lib/stores/app.svelte.js";
 
   let users = $derived(userStore.users);
   let allTasks = $derived(taskStore.tasks);
@@ -184,7 +186,25 @@
 
   <div class="space-y-6">
     <!-- Team Members List -->
-    {#if users.length === 0}
+    {#if !appState.ready}
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {#each Array(3) as _}
+          <div class="rounded-xl border border-border bg-card p-4">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted"></div>
+              <div class="min-w-0 flex-1">
+                <Skeleton variant="title" width="70%" />
+                <div class="mt-2"><Skeleton width="45%" /></div>
+              </div>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <Skeleton variant="stat" />
+              <Skeleton variant="stat" />
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else if users.length === 0}
       <div class="py-16 text-center">
         <Users2
           size={48}

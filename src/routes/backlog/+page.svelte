@@ -6,6 +6,8 @@
   import { toastStore } from "../../lib/toastStore.svelte.js";
   import { marked } from "marked";
   import { _ } from "$lib/i18n";
+  import Skeleton from "../../lib/components/Skeleton.svelte";
+  import { appState } from "../../lib/stores/app.svelte.js";
 
   let allTasks = $derived(taskStore.tasks);
   let sprints = $derived(sprintStore.sprints);
@@ -118,6 +120,20 @@
         {$_("backlog.itemsList")}
       </h2>
 
+      {#if !appState.ready}
+        <div class="grid gap-4 lg:grid-cols-2">
+          {#each Array(4) as _, i}
+            <div class="rounded-xl border border-border bg-card p-4">
+              <Skeleton variant="title" width="{80 - i * 10}%" />
+              <div class="mt-3 flex gap-1.5">
+                <Skeleton variant="chip" />
+                <Skeleton variant="chip" class="w-10" />
+              </div>
+              <div class="mt-3"><Skeleton width="55%" /></div>
+            </div>
+          {/each}
+        </div>
+      {:else}
       <div class="grid gap-4 lg:grid-cols-2">
         {#each backlogItems as task (task.id)}
           {@const priorityColor = getPriorityColor(task.priority || "medium")}
@@ -220,6 +236,7 @@
           </div>
         {/each}
       </div>
+      {/if}
     </section>
   </div>
 </main>

@@ -28,6 +28,8 @@
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
   import TaskTimer from "../../lib/components/TaskTimer.svelte";
   import ToolsMenu from "../../lib/components/ToolsMenu.svelte";
+  import Skeleton from "../../lib/components/Skeleton.svelte";
+  import { appState } from "../../lib/stores/app.svelte.js";
   import Select from "../../lib/Select.svelte";
   import DatePicker from "../../lib/components/DatePicker.svelte";
   import { dndzone } from "svelte-dnd-action";
@@ -455,6 +457,22 @@
 
           <!-- Each column scrolls its own tasks, so a long column never pushes
                the board or the other columns out of view -->
+          {#if !appState.ready}
+            <!-- Card-shaped placeholders so the board does not reflow when the
+                 real tasks arrive -->
+            <div class="flex flex-col gap-3">
+              {#each Array(3) as _, i}
+                <div class="rounded-xl border border-border bg-card p-4">
+                  <Skeleton variant="title" width="{85 - i * 15}%" />
+                  <div class="mt-3 flex gap-1.5">
+                    <Skeleton variant="chip" />
+                    <Skeleton variant="chip" class="w-9" />
+                  </div>
+                  <div class="mt-3"><Skeleton width="60%" /></div>
+                </div>
+              {/each}
+            </div>
+          {:else}
           <div
             class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1"
             use:dndzone={{
@@ -698,8 +716,9 @@
               </span>
             </div>
           {/each}
+          </div>
+          {/if}
         </div>
-      </div>
     {/each}
   </div>
 </main>

@@ -8,6 +8,8 @@
   import ConfirmModal from "../lib/components/ConfirmModal.svelte";
   import LanguageSelector from "../lib/components/LanguageSelector.svelte";
   import { initApp, clearAllStores, sprintStore } from "../lib/stores/index.js";
+  import { appState } from "../lib/stores/app.svelte.js";
+  import SplashScreen from "../lib/components/SplashScreen.svelte";
   import { _ } from "$lib/i18n";
 
   let { children } = $props();
@@ -40,12 +42,19 @@
     isMac = platform.includes('mac');
     isLinux = platform.includes('linux');
 
-    // Initialize all stores
-    // Async: the on-disk snapshot has to load before stores hydrate
-    initApp();
-
-    // Check if active sprint should be auto-finished based on end date
-    sprintStore.checkAutoFinish();
+    // Initialize all stores.
+    // Async: the on-disk snapshot has to load before stores hydrate, so
+    // everything that reads store data waits on it - checkAutoFinish included,
+    // which would otherwise run against an empty sprint list.
+    initApp()
+      .then(() => {
+        sprintStore.checkAutoFinish();
+        appState.setReady();
+      })
+      .catch((error) => {
+        console.error("Startup failed:", error);
+        appState.setBootError("Could not load your data. Working from the local cache.");
+      });
 
     // Try to get Tauri window (will fail gracefully in browser)
     try {
@@ -267,6 +276,10 @@
   const toggleMaximize = () => appWindow?.toggleMaximize();
   const close = () => appWindow?.close();
 </script>
+
+{#if !appState.ready}
+  <SplashScreen error={appState.bootError} />
+{/if}
 
 <div class="app-shell">
   <!-- Custom Titlebar -->
