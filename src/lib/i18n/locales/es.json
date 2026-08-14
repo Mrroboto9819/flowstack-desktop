@@ -143,6 +143,7 @@
   "tasks": {
     "addToSprint": "Agregar al sprint",
     "allMembers": "Todos los miembros",
+    "archive": "Archivar",
     "backlog": "Backlog",
     "blocked": "Bloqueado",
     "clearFilters": "Limpiar filtros",
@@ -219,8 +220,10 @@
       "critical": "Crítica"
     },
     "removeFromSprint": "Quitar del sprint",
+    "restore": "Restaurar",
     "selectSprint": "Seleccionar sprint",
     "selectStatus": "Seleccionar estado",
+    "showArchived": "Ver archivadas",
     "startDate": "Fecha de inicio",
     "subtasks": "subtareas",
     "summaryCopied": "Resumen copiado al portapapeles",

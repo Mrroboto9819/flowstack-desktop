@@ -10,7 +10,11 @@
   import { appState } from "../../lib/stores/app.svelte.js";
   import { staggerChildren } from "$lib/actions/animate.js";
 
-  let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
+  // Archived tasks are hidden here as well - the flag means "not on my board",
+  // not "not on the Tasks page"
+  let allTasks = $derived(
+    taskStore.tasks.filter((t) => projectStore.inScope(t) && !t.archived)
+  );
   let sprints = $derived(sprintStore.sprints.filter((s) => projectStore.inScope(s)));
 
   // Modal state

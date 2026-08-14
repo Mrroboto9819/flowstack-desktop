@@ -319,6 +319,28 @@ export const taskStore = {
     saveTasks();
   },
 
+  /**
+   * Archive or restore a task.
+   *
+   * Deliberately a separate flag rather than a status: the task keeps whatever
+   * column it was in, so restoring it puts it back exactly where it was and
+   * reports still see its real state. Moving it to a "done"-like status would
+   * lose that and quietly distort the numbers.
+   *
+   * @param {string} id
+   * @param {boolean} archived
+   */
+  setArchived(id, archived) {
+    const now = new Date().toISOString();
+    tasks = tasks.map((task) =>
+      task.id === id
+        ? { ...task, archived: Boolean(archived), archivedAt: archived ? now : null, updated: now }
+        : task
+    );
+    saveTasks();
+    toastStore.success(archived ? "Task archived" : "Task restored");
+  },
+
   updateStatus(id, newStatus) {
     this.update(id, { status: newStatus });
   },

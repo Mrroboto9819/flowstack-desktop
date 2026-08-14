@@ -1,26 +1,28 @@
 <script>
   import { onMount } from "svelte";
   import {
-    Plus,
-    Pencil,
-    Trash2,
-    ChevronLeft,
-    ChevronRight,
-    GripVertical,
-    Move,
-    CheckCircle,
-    Clipboard,
-    Tag,
-    Clock,
-    Hash,
     AlertCircle,
     AlertTriangle,
-    Eye,
-    ListTodo,
-    Download,
-    Upload,
+    CheckCircle,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Clipboard,
+    Clock,
+    Download,
+    Eye,
+    GripVertical,
+    Hash,
+    Inbox,
+    ListTodo,
+    Move,
+    Pencil,
+    Plus,
     SlidersHorizontal,
+    Tag,
+    Trash2,
+    Undo2,
+    Upload,
   } from "$lib/icons";
   import {
     taskStore,
@@ -92,6 +94,9 @@
   // your own work. "all" whenever no team member is linked, otherwise a fresh
   // install would look empty.
   let filterAssignee = $state(userStore.currentMember?.id || "all");
+  // Archived tasks stay in their column and keep their status - they are just
+  // hidden. This toggle brings them back into view without changing anything.
+  let showArchived = $state(false);
   let filterFrom = $state("");
   let filterTo = $state("");
 
@@ -132,6 +137,10 @@
     return task.sprintId === filterSprint;
   }
 
+  function matchesArchived(task) {
+    return showArchived ? true : !task.archived;
+  }
+
   function matchesAssignee(task) {
     if (filterAssignee === "all") return true;
     if (filterAssignee === "unassigned") return !task.assigneeId;
@@ -163,6 +172,7 @@
   let filteredTasks = $derived(
     allTasks.filter(
       (task) =>
+        matchesArchived(task) &&
         matchesStatus(task) &&
         matchesSprint(task) &&
         matchesAssignee(task) &&
@@ -221,6 +231,7 @@
     filterSprint = "all";
     // Clearing means "show everything", including other people's work
     filterAssignee = "all";
+    showArchived = false;
     filterTag = "";
     filterFrom = "";
     filterTo = "";
@@ -309,6 +320,7 @@
       filterStatus !== "all",
       filterSprint !== "all",
       filterAssignee !== "all",
+      showArchived,
       filterTag.trim() !== "",
       filterFrom !== "",
       filterTo !== "",
@@ -419,6 +431,17 @@
 
     {#if filtersOpen}
       <div class="grid gap-3 sm:grid-cols-2 {methodology === 'agile' ? 'xl:grid-cols-6' : 'xl:grid-cols-5'}">
+        <div class="flex items-end">
+          <label class="flex cursor-pointer items-center gap-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <input
+              type="checkbox"
+              bind:checked={showArchived}
+              class="h-4 w-4 rounded border-input accent-primary"
+            />
+            {$_("tasks.showArchived")}
+          </label>
+        </div>
+
         <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {$_("tasks.filterAssignee")}
           <div class="mt-2">
@@ -572,6 +595,8 @@
                     animate:flip={{ duration: flipDurationMs }}
                     use:fadeIn
                     class={`group relative flex cursor-grab flex-col rounded-xl border bg-card p-4 transition-colors duration-200 active:scale-[0.99] ${
+                      task.archived ? "opacity-55" : ""
+                    } ${
                       task.blocked
                         ? "border-rose-500/40 bg-rose-500/5"
                         : "border-border hover:border-primary"
@@ -786,6 +811,21 @@
                           title={$_("common.edit")}
                         >
                           <Pencil size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-ghost px-2 py-1 text-[10px]"
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            taskStore.setArchived(task.id, !task.archived);
+                          }}
+                          title={task.archived ? $_("tasks.restore") : $_("tasks.archive")}
+                        >
+                          {#if task.archived}
+                            <Undo2 size={12} />
+                          {:else}
+                            <Inbox size={12} />
+                          {/if}
                         </button>
                         <button
                           type="button"

@@ -143,6 +143,7 @@
   "tasks": {
     "addToSprint": "Add to sprint",
     "allMembers": "All members",
+    "archive": "Archive",
     "backlog": "Backlog",
     "blocked": "Blocked",
     "clearFilters": "Clear filters",
@@ -219,8 +220,10 @@
       "critical": "Critical"
     },
     "removeFromSprint": "Remove from sprint",
+    "restore": "Restore",
     "selectSprint": "Select sprint",
     "selectStatus": "Select status",
+    "showArchived": "Show archived",
     "startDate": "Start date",
     "subtasks": "subtasks",
     "summaryCopied": "Summary copied to clipboard",
