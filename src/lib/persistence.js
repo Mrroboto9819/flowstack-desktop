@@ -7,8 +7,11 @@
  * your board.
  *
  * Now a single JSON snapshot on disk is the source of truth, written through
- * Tauri's fs plugin. localStorage stays only as a synchronous cache so the
- * stores can keep their existing sync API.
+ * Tauri's fs plugin. localStorage is a write-only crash cache behind it: it is
+ * mirrored on every save so the data survives a hard kill, but it is never
+ * read back once the snapshot has loaded. Reading it after init would answer
+ * with a stale copy for any slice the file does not carry yet, which is how a
+ * newly added slice ends up serving yesterday's data.
  *
  *   read:  disk -> cache -> stores        (once, at startup)
  *   write: stores -> cache -> disk        (debounced, atomic)
@@ -32,8 +35,11 @@ const LEGACY_KEYS = {
 
 const SLICES = Object.keys(LEGACY_KEYS);
 
-/** In-memory copy of the snapshot's data section. */
+/** In-memory copy of the snapshot's data section - the runtime source of truth. */
 let cache = null;
+
+/** Set once initPersistence has resolved which backend is in play. */
+let initialized = false;
 let revision = 0;
 let backend = "memory"; // "tauri" | "localStorage" | "memory"
 let flushTimer = null;
@@ -109,6 +115,7 @@ export async function initPersistence(options = {}) {
   if (!tauri) {
     backend = isBrowser() ? "localStorage" : "memory";
     cache = isBrowser() ? readLegacyLocalStorage() : {};
+    initialized = true;
     return { backend, migrated: false };
   }
 
@@ -150,6 +157,7 @@ export async function initPersistence(options = {}) {
     }
   }
 
+  initialized = true;
   await startWatching(fs, dir, file);
   return { backend, migrated, file };
 }
@@ -220,7 +228,13 @@ async function startWatching(fs, dir, file) {
 export function load(slice, fallback) {
   if (cache && cache[slice] !== undefined) return cache[slice];
 
-  // Before init, or in a plain browser, fall back to the legacy key
+  // Once the snapshot is loaded it is the only truth. Falling back to
+  // localStorage here would answer with a stale copy for any slice the file
+  // does not carry yet - which is precisely how a newly added slice reads
+  // yesterday's data on a machine whose snapshot predates it.
+  if (initialized && backend === "tauri") return fallback;
+
+  // Before init, or with no file backend at all, the legacy key is all there is
   if (isBrowser()) {
     try {
       const raw = localStorage.getItem(LEGACY_KEYS[slice]);
@@ -241,6 +255,9 @@ export function save(slice, value) {
   cache ??= {};
   cache[slice] = value;
 
+  // With a file backend, localStorage is a crash-recovery cache and nothing
+  // more: it is never read once the snapshot has loaded (see load()). Without
+  // one - a plain browser - it is the only persistence there is.
   if (isBrowser() && LEGACY_KEYS[slice]) {
     try {
       localStorage.setItem(LEGACY_KEYS[slice], JSON.stringify(value));

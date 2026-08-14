@@ -22,7 +22,13 @@ import { settingsStore } from "./settings.svelte.js";
 import { tagStore } from "./tags.svelte.js";
 import { projectStore } from "./projects.svelte.js";
 import { toastStore } from "../toastStore.svelte.js";
-import { initPersistence, flushNow, persistenceInfo, save as saveSlice } from "../persistence.js";
+import {
+  initPersistence,
+  flushNow,
+  persistenceInfo,
+  save as saveSlice,
+  load as loadSlice,
+} from "../persistence.js";
 
 export { persistenceInfo, flushNow };
 
@@ -63,15 +69,11 @@ const isUuid = (v) => typeof v === "string" && UUID_RE.test(v);
 function migrateIdsToUuid() {
   if (typeof localStorage === "undefined") return false;
 
-  const read = (key) => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
-  const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+  // Go through the persistence layer, not localStorage. The stores hydrate from
+  // the snapshot cache, so a migration that only rewrote localStorage would be
+  // silently discarded on any install with a file backend.
+  const read = (slice) => loadSlice(slice, null);
+  const write = (slice, value) => saveSlice(slice, value);
 
   let changed = false;
   /** @type {Record<string, Record<string, string>>} */
@@ -79,7 +81,7 @@ function migrateIdsToUuid() {
 
   // Pass 1 - the records themselves
   for (const name of ["sprints", "users", "tags", "projects"]) {
-    const rows = read(STORAGE_KEYS[name]);
+    const rows = read(name);
     if (!Array.isArray(rows)) continue;
 
     /** @type {Record<string, string>} */
@@ -98,14 +100,14 @@ function migrateIdsToUuid() {
 
     idMaps[name] = map;
     if (touched) {
-      write(STORAGE_KEYS[name], next);
+      write(name, next);
       changed = true;
     }
   }
 
   // Pass 2a - projectId on sprints, if the project ids were just reminted
   if (Object.keys(idMaps.projects || {}).length) {
-    const sprintRows = read(STORAGE_KEYS.sprints);
+    const sprintRows = read("sprints");
     if (Array.isArray(sprintRows)) {
       let touched = false;
       const next = sprintRows.map((sprint) => {
@@ -116,14 +118,14 @@ function migrateIdsToUuid() {
         return { ...sprint, projectId: mapped };
       });
       if (touched) {
-        write(STORAGE_KEYS.sprints, next);
+        write("sprints", next);
         changed = true;
       }
     }
   }
 
   // Pass 2b - the foreign keys on tasks
-  const tasks = read(STORAGE_KEYS.tasks);
+  const tasks = read("tasks");
   if (Array.isArray(tasks)) {
     let touched = false;
 
@@ -160,7 +162,7 @@ function migrateIdsToUuid() {
     });
 
     if (touched) {
-      write(STORAGE_KEYS.tasks, next);
+      write("tasks", next);
       changed = true;
     }
   }
@@ -184,17 +186,13 @@ function migrateIdsToUuid() {
 function migrateDefaultProject() {
   if (typeof localStorage === "undefined") return false;
 
-  const read = (key) => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
-  const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+  // Go through the persistence layer, not localStorage. The stores hydrate from
+  // the snapshot cache, so a migration that only rewrote localStorage would be
+  // silently discarded on any install with a file backend.
+  const read = (slice) => loadSlice(slice, null);
+  const write = (slice, value) => saveSlice(slice, value);
 
-  const existing = read(STORAGE_KEYS.projects);
+  const existing = read("projects");
   const hasProjects = Array.isArray(existing) && existing.length > 0;
 
   // Adopt into the first project when one already exists. Creating a project
@@ -215,14 +213,14 @@ function migrateDefaultProject() {
       created: now,
       updated: now,
     };
-    write(STORAGE_KEYS.projects, [project]);
+    write("projects", [project]);
   }
 
   let changed = !hasProjects;
 
   // Adopt every sprint and task that has no project yet. Only writes when
   // something actually moves, so a settled install does nothing on each boot.
-  for (const key of [STORAGE_KEYS.sprints, STORAGE_KEYS.tasks]) {
+  for (const key of ["sprints", "tasks"]) {
     const rows = read(key);
     if (!Array.isArray(rows) || rows.length === 0) continue;
 
@@ -241,7 +239,7 @@ function migrateDefaultProject() {
 
   // People carry a membership list rather than one id - the same person is
   // normally on several projects
-  const users = read(STORAGE_KEYS.users);
+  const users = read("users");
   if (Array.isArray(users) && users.length > 0) {
     let touched = false;
     const next = users.map((user) => {
@@ -251,7 +249,7 @@ function migrateDefaultProject() {
     });
 
     if (touched) {
-      write(STORAGE_KEYS.users, next);
+      write("users", next);
       changed = true;
     }
   }
