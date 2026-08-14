@@ -14,6 +14,7 @@
   import { Plus, Pencil, Trash2, Check, X, Upload } from "$lib/icons";
   import ConfirmModal from "$lib/components/ConfirmModal.svelte";
   import { toastStore } from "$lib/toastStore.svelte.js";
+  import { reveal, staggerChildren } from "$lib/actions/animate.js";
 
   const PALETTE = [
     "#2dd4bf",
@@ -150,7 +151,7 @@
 <svelte:head><title>{$_("nav.projects")} · FlowStack</title></svelte:head>
 
 <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
-  <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <header class="mb-6 flex flex-wrap items-center justify-between gap-3" use:reveal>
     <div>
       <h1 class="text-2xl font-semibold text-foreground">{$_("nav.projects")}</h1>
       <p class="mt-1 text-sm text-muted-foreground">{$_("projects.subtitle")}</p>
@@ -275,7 +276,7 @@
   {#if projects.length === 0}
     <p class="py-12 text-center text-sm text-muted-foreground">{$_("projects.empty")}</p>
   {:else}
-    <ul class="divide-y divide-border">
+    <ul class="divide-y divide-border" use:staggerChildren={{ y: 8 }}>
       {#each projects as project (project.id)}
         {@const stat = counts(project.id)}
         <li class="flex items-center gap-4 py-4">

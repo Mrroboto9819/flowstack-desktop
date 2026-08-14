@@ -39,6 +39,7 @@
   import { _ } from "$lib/i18n";
   import { formatBoardSummaryForClipboard, copyToClipboard } from "../../lib/utils/clipboard.js";
   import { exportTasksToFile, importTasksWithDialog } from "../../lib/utils/taskTransfer.js";
+  import { staggerChildren } from "$lib/actions/animate.js";
 
   let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
   let users = $derived(userStore.users);
@@ -433,7 +434,7 @@
        scrolling the page first. min-h-0 is required for flex-1 to be allowed
        to shrink below its content height. -->
   <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden pb-3">
-    <div class="flex h-full gap-4">
+    <div class="flex h-full gap-4" use:staggerChildren={{ y: 16, stagger: 0.06 }}>
       {#each visibleStatuses as statusItem (statusItem.id)}
         <!-- Columns share the width when they fit, and only start scrolling
              sideways once they cannot - so all sections stay visible. -->

@@ -8,6 +8,7 @@
   import { _ } from "$lib/i18n";
   import Skeleton from "../../lib/components/Skeleton.svelte";
   import { appState } from "../../lib/stores/app.svelte.js";
+  import { staggerChildren } from "$lib/actions/animate.js";
 
   let allTasks = $derived(taskStore.tasks.filter((t) => projectStore.inScope(t)));
   let sprints = $derived(sprintStore.sprints.filter((s) => projectStore.inScope(s)));
@@ -121,7 +122,7 @@
       </h2>
 
       {#if !appState.ready}
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div class="grid gap-4 lg:grid-cols-2" use:staggerChildren>
           {#each Array(4) as _, i}
             <div class="rounded-xl border border-border bg-card p-4">
               <Skeleton variant="title" width="{80 - i * 10}%" />
