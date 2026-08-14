@@ -80,6 +80,10 @@
   let filterStatus = $state("all");
   let filterSprint = $state("all");
   let filterTag = $state("");
+  // Defaults to whoever this install is signed in as, so the board opens on
+  // your own work. "all" whenever no team member is linked, otherwise a fresh
+  // install would look empty.
+  let filterAssignee = $state(userStore.currentMember?.id || "all");
   let filterFrom = $state("");
   let filterTo = $state("");
 
@@ -120,6 +124,12 @@
     return task.sprintId === filterSprint;
   }
 
+  function matchesAssignee(task) {
+    if (filterAssignee === "all") return true;
+    if (filterAssignee === "unassigned") return !task.assigneeId;
+    return task.assigneeId === filterAssignee;
+  }
+
   function matchesTag(task) {
     if (!filterTag.trim()) return true;
     const needle = filterTag.trim().toLowerCase();
@@ -143,7 +153,14 @@
 
   // Get filtered tasks
   let filteredTasks = $derived(
-    allTasks.filter((task) => matchesStatus(task) && matchesSprint(task) && matchesTag(task) && matchesDate(task))
+    allTasks.filter(
+      (task) =>
+        matchesStatus(task) &&
+        matchesSprint(task) &&
+        matchesAssignee(task) &&
+        matchesTag(task) &&
+        matchesDate(task)
+    )
   );
 
   // Get tasks for status
@@ -194,6 +211,8 @@
   function clearFilters() {
     filterStatus = "all";
     filterSprint = "all";
+    // Clearing means "show everything", including other people's work
+    filterAssignee = "all";
     filterTag = "";
     filterFrom = "";
     filterTo = "";
@@ -245,10 +264,20 @@
   // active filter visible while hidden
   let filtersOpen = $state(false);
 
+  let assigneeFilterOptions = $derived([
+    { value: "all", label: $_("tasks.allMembers") },
+    { value: "unassigned", label: $_("tasks.unassigned") },
+    ...userStore.users.map((u) => ({
+      value: u.id,
+      label: `${u.name || ""} ${u.lastname || ""}`.trim(),
+    })),
+  ]);
+
   let activeFilterCount = $derived(
     [
       filterStatus !== "all",
       filterSprint !== "all",
+      filterAssignee !== "all",
       filterTag.trim() !== "",
       filterFrom !== "",
       filterTo !== "",
@@ -359,6 +388,17 @@
 
     {#if filtersOpen}
       <div class="grid gap-3 sm:grid-cols-2 {methodology === 'agile' ? 'xl:grid-cols-6' : 'xl:grid-cols-5'}">
+        <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {$_("tasks.filterAssignee")}
+          <div class="mt-2">
+            <Select
+              bind:value={filterAssignee}
+              options={assigneeFilterOptions}
+              placeholder={$_("tasks.allMembers")}
+            />
+          </div>
+        </label>
+
         <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {$_("tasks.filterStatus")}
           <div class="mt-2">
