@@ -82,6 +82,46 @@ export class SnapshotStore {
     return target;
   }
 
+  /** Backup filenames, newest first. */
+  listBackups() {
+    if (!existsSync(this.backupDir)) return [];
+    return readdirSync(this.backupDir).filter((f) => f.endsWith(".json")).sort().reverse();
+  }
+
+  /**
+   * Roll back to a backup. The current state is backed up first, so a restore
+   * is itself undoable - otherwise recovering from one mistake creates another.
+   *
+   * @param {string} [name] - backup filename; defaults to the most recent
+   */
+  restoreBackup(name) {
+    const available = this.listBackups();
+    if (available.length === 0) throw new Error("no backups available");
+
+    const target = name || available[0];
+    if (!available.includes(target)) {
+      throw new Error(`no backup named ${target} (have: ${available.slice(0, 5).join(", ")})`);
+    }
+
+    const parsed = parseSnapshot(readFileSync(join(this.backupDir, target), "utf8"));
+    if (!parsed.ok) throw new Error(`backup ${target} is unreadable: ${parsed.error}`);
+
+    const check = validateSnapshot(parsed.snapshot);
+    if (!check.ok) throw new Error(`backup ${target} is invalid: ${check.error}`);
+
+    const safety = this.backup();
+    const current = this.read();
+    const next = buildSnapshot(parsed.snapshot.data, (current.revision || 0) + 1);
+    this.write(next);
+
+    return {
+      restored: target,
+      currentStateSavedAs: safety ? safety.split("/").pop() : null,
+      tasks: next.data.tasks.length,
+      sprints: next.data.sprints.length,
+    };
+  }
+
   /**
    * Apply a change to the snapshot's data and persist it.
    *

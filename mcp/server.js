@@ -100,6 +100,36 @@ function ensureTags(data, names) {
   return out;
 }
 
+/**
+ * Find a task by full UUID or by the short prefix the compact listing prints.
+ * Listings show 8 chars, so every tool that takes a task id must accept one -
+ * otherwise ids you can see are ids you cannot use.
+ */
+function findTask(data, ref) {
+  if (!ref) return null;
+  const exact = data.tasks.find((t) => t.id === ref);
+  if (exact) return exact;
+
+  const matches = data.tasks.filter((t) => t.id.startsWith(ref));
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) {
+    throw new Error(`"${ref}" matches ${matches.length} tasks - use the full id`);
+  }
+  return null;
+}
+
+/** One line per task - the cheap listing format. */
+const compactLine = (t, data) => [
+  t.id.slice(0, 8),
+  t.status,
+  points(t) || "-",
+  t.title,
+  data.sprints.find((s) => s.id === t.sprintId)?.name || "backlog",
+  t.asign || "-",
+  [t.blocked && "BLOCKED", (t.subtasks || []).length && `${(t.subtasks || []).filter((x) => x.completed).length}/${t.subtasks.length}`]
+    .filter(Boolean).join(" ") || "-",
+].join(" | ");
+
 const summarise = (t, data) => ({
   id: t.id,
   title: t.title,
@@ -118,7 +148,7 @@ const summarise = (t, data) => ({
 const TOOLS = {
   list_tasks: {
     description:
-      "List tasks, optionally filtered. Returns a compact summary; use get_task for the full record.",
+      "List tasks, optionally filtered. Returns one compact line per task; pass verbose for full summary objects, or use get_task for one complete record.",
     schema: {
       type: "object",
       properties: {
@@ -127,7 +157,9 @@ const TOOLS = {
         assignee: { type: "string", description: "User name or id" },
         tag: { type: "string" },
         blocked: { type: "boolean" },
-        search: { type: "string", description: "Case-insensitive match on title" },
+        search: { type: "string", description: "Case-insensitive match on title, description and acceptance criteria" },
+        limit: { type: "number", description: "Max rows (default 50)" },
+        verbose: { type: "boolean", description: "Full summary objects instead of compact lines" },
       },
     },
     run(args) {
@@ -151,9 +183,29 @@ const TOOLS = {
       if (typeof args.blocked === "boolean") rows = rows.filter((t) => Boolean(t.blocked) === args.blocked);
       if (args.search) {
         const needle = args.search.toLowerCase();
-        rows = rows.filter((t) => (t.title || "").toLowerCase().includes(needle));
+        rows = rows.filter((t) =>
+          [t.title, t.description, t.acceptance, t.epic]
+            .some((f) => typeof f === "string" && f.toLowerCase().includes(needle))
+        );
       }
-      return { count: rows.length, tasks: rows.map((t) => summarise(t, data)) };
+
+      // Compact by default: a listing is for choosing what to look at, and one
+      // line per task costs ~1/5 the tokens of a full summary object. At 500
+      // tasks the object form alone would fill most of a context window.
+      const limit = Number.isFinite(args.limit) ? args.limit : 50;
+      const page = rows.slice(0, limit);
+      const truncated = rows.length > page.length;
+
+      if (args.verbose) {
+        return { count: rows.length, shown: page.length, truncated, tasks: page.map((t) => summarise(t, data)) };
+      }
+      return {
+        count: rows.length,
+        shown: page.length,
+        truncated,
+        legend: "id | status | pts | title | sprint | assignee | flags",
+        tasks: page.map((t) => compactLine(t, data)),
+      };
     },
   },
 
@@ -163,7 +215,7 @@ const TOOLS = {
     run(args) {
       requireAccess("read");
       const { data } = store.read();
-      const task = data.tasks.find((t) => t.id === args.id);
+      const task = findTask(data, args.id);
       if (!task) throw new Error(`no task with id ${args.id}`);
       return task;
     },
@@ -258,9 +310,10 @@ const TOOLS = {
     run(args) {
       requireAccess("write");
       const { snapshot } = store.mutate((data) => {
-        const idx = data.tasks.findIndex((t) => t.id === args.id);
-        if (idx === -1) throw new Error(`no task with id ${args.id}`);
-        const old = data.tasks[idx];
+        const found = findTask(data, args.id);
+        if (!found) throw new Error(`no task with id ${args.id}`);
+        const idx = data.tasks.indexOf(found);
+        const old = found;
 
         const updates = {};
         for (const f of ["title", "description", "status", "priority", "blocker", "acceptance", "epic"]) {
@@ -306,10 +359,10 @@ const TOOLS = {
       requireAccess("delete");
       let removed = null;
       const { backup } = store.mutate((data) => {
-        const idx = data.tasks.findIndex((t) => t.id === args.id);
-        if (idx === -1) throw new Error(`no task with id ${args.id}`);
-        removed = data.tasks[idx];
-        data.tasks.splice(idx, 1);
+        const found = findTask(data, args.id);
+        if (!found) throw new Error(`no task with id ${args.id}`);
+        removed = found;
+        data.tasks.splice(data.tasks.indexOf(found), 1);
         return data;
       });
       return { deleted: { id: removed.id, title: removed.title }, backup };
@@ -634,7 +687,7 @@ const TOOLS = {
     run(args) {
       requireAccess("write");
       store.mutate((data) => {
-        const task = data.tasks.find((t) => t.id === args.id);
+        const task = findTask(data, args.id);
         if (!task) throw new Error(`no task with id ${args.id}`);
 
         if (args.sprint !== undefined) {
@@ -879,6 +932,243 @@ const TOOLS = {
         return data;
       });
       return { settings: snapshot.data.settings };
+    },
+  },
+
+  // --- subtasks ------------------------------------------------------------
+
+  set_subtasks: {
+    description:
+      "Tick, untick, add, rename or remove a task's subtasks. Match an existing subtask by its id, its 8-char id prefix, or its exact text; anything unmatched with a `text` is added. Only the subtasks you name are touched — the rest keep their state.",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Task id or short prefix" },
+        subtasks: {
+          type: "array",
+          description: "Subtasks to change",
+          items: {
+            type: "object",
+            properties: {
+              match: { type: "string", description: "Existing subtask id, id prefix, or exact text" },
+              text: { type: "string", description: "New text (renames when matched, adds when not)" },
+              completed: { type: "boolean" },
+              remove: { type: "boolean" },
+            },
+          },
+        },
+      },
+      required: ["id", "subtasks"],
+    },
+    run(args) {
+      requireAccess("write");
+      let report = null;
+
+      store.mutate((data) => {
+        const task = findTask(data, args.id);
+        if (!task) throw new Error(`no task with id ${args.id}`);
+
+        const list = Array.isArray(task.subtasks) ? [...task.subtasks] : [];
+        const changes = { ticked: 0, unticked: 0, added: 0, renamed: 0, removed: 0 };
+
+        for (const change of args.subtasks || []) {
+          const ref = change.match ?? change.text;
+          const idx = ref
+            ? list.findIndex(
+                (st) =>
+                  st.id === ref ||
+                  st.id.startsWith(ref) ||
+                  (st.text || "").toLowerCase() === String(ref).toLowerCase()
+              )
+            : -1;
+
+          if (idx === -1) {
+            // Nothing matched - only a `text` justifies creating a new one, so a
+            // typo'd match cannot silently become a duplicate subtask
+            if (!change.text) throw new Error(`no subtask matching "${ref}" on this task`);
+            list.push({ id: newId(), text: change.text.trim(), completed: Boolean(change.completed) });
+            changes.added++;
+            continue;
+          }
+
+          if (change.remove) {
+            list.splice(idx, 1);
+            changes.removed++;
+            continue;
+          }
+          if (change.text && change.text !== list[idx].text) {
+            list[idx] = { ...list[idx], text: change.text.trim() };
+            changes.renamed++;
+          }
+          if (typeof change.completed === "boolean" && change.completed !== list[idx].completed) {
+            list[idx] = { ...list[idx], completed: change.completed };
+            changes[change.completed ? "ticked" : "unticked"]++;
+          }
+        }
+
+        task.subtasks = normalizeSubtasks(list);
+        task.updated = new Date().toISOString();
+
+        const done = task.subtasks.filter((st) => st.completed).length;
+        report = {
+          task: task.title,
+          changes,
+          progress: `${done}/${task.subtasks.length}`,
+          allComplete: task.subtasks.length > 0 && done === task.subtasks.length,
+          subtasks: task.subtasks.map((st) => `${st.completed ? "[x]" : "[ ]"} ${st.text}`),
+        };
+        return data;
+      });
+
+      return report;
+    },
+  },
+
+  // --- batch ---------------------------------------------------------------
+
+  bulk_update_tasks: {
+    description:
+      "Apply the same change to several tasks in one write. Far cheaper than one call per task, and the whole batch is validated together — if any task would break a relationship, none of them change.",
+    schema: {
+      type: "object",
+      properties: {
+        ids: { type: "array", items: { type: "string" }, description: "Task ids or short prefixes" },
+        status: { type: "string" },
+        sprint: { type: "string", description: "Sprint name or id, or 'backlog'" },
+        assignee: { type: "string" },
+        priority: { type: "string", enum: ["critical", "high", "medium", "low"] },
+        blocked: { type: "boolean" },
+        blocker: { type: "string" },
+      },
+      required: ["ids"],
+    },
+    run(args) {
+      requireAccess("write");
+      const changed = [];
+
+      store.mutate((data) => {
+        const updates = {};
+        for (const f of ["status", "priority", "blocker"]) {
+          if (args[f] !== undefined) updates[f] = args[f];
+        }
+        if (args.blocked !== undefined) updates.blocked = Boolean(args.blocked);
+
+        if (args.sprint !== undefined) {
+          if (args.sprint === "backlog") updates.sprintId = null;
+          else {
+            const s = findSprint(data, args.sprint);
+            if (!s) throw new Error(`no sprint matching "${args.sprint}"`);
+            updates.sprintId = s.id;
+          }
+        }
+        if (args.assignee !== undefined) {
+          if (!args.assignee) updates.assigneeId = null;
+          else {
+            const u = findUser(data, args.assignee);
+            if (!u) throw new Error(`no user matching "${args.assignee}"`);
+            updates.assigneeId = u.id;
+          }
+        }
+        if (args.status && !(data.statuses || []).some((s) => s.status === args.status)) {
+          throw new Error(`"${args.status}" is not a board column`);
+        }
+        if (Object.keys(updates).length === 0) throw new Error("nothing to change");
+
+        // Resolve every id first: a bad id fails the batch before anything is
+        // written, rather than leaving half the tasks updated
+        const targets = args.ids.map((ref) => {
+          const t = findTask(data, ref);
+          if (!t) throw new Error(`no task with id ${ref}`);
+          return t;
+        });
+
+        const now = new Date().toISOString();
+        for (const task of targets) {
+          const history = [...(task.history || []), ...getChangedFields(task, updates)];
+          Object.assign(task, resolveRelations({ ...task, ...updates, updated: now, history }, world(data)));
+          changed.push(`${task.id.slice(0, 8)} ${task.title}`);
+        }
+        return data;
+      });
+
+      return { updated: changed.length, tasks: changed };
+    },
+  },
+
+  // --- recovery ------------------------------------------------------------
+
+  list_backups: {
+    description: "List recent automatic backups, newest first. Every destructive change writes one.",
+    schema: { type: "object", properties: {} },
+    run() {
+      requireAccess("read");
+      return { dir: store.backupDir, backups: store.listBackups() };
+    },
+  },
+
+  restore_backup: {
+    description:
+      "Roll the board back to a backup taken before a destructive change. Backs up the CURRENT state first, so a restore is itself undoable.",
+    schema: {
+      type: "object",
+      properties: { name: { type: "string", description: "Backup filename from list_backups; omit for the most recent" } },
+    },
+    run(args) {
+      requireAccess("delete");
+      return store.restoreBackup(args.name);
+    },
+  },
+
+  // --- grooming ------------------------------------------------------------
+
+  find_issues: {
+    description:
+      "Report tasks that need attention before planning: unestimated, oversized, missing acceptance criteria, blocked, stale, or stranded in a closed sprint. Read-only.",
+    schema: {
+      type: "object",
+      properties: {
+        sprint: { type: "string", description: "Limit to one sprint, or 'backlog'" },
+        staleDays: { type: "number", description: "Days without an update to count as stale (default 30)" },
+      },
+    },
+    run(args) {
+      requireAccess("read");
+      const { data } = store.read();
+      const closedSprintIds = new Set(
+        data.sprints.filter((s) => s.status === "closed").map((s) => s.id)
+      );
+
+      let rows = data.tasks;
+      if (args.sprint === "backlog") rows = rows.filter((t) => !t.sprintId);
+      else if (args.sprint) {
+        const s = findSprint(data, args.sprint);
+        if (!s) throw new Error(`no sprint matching "${args.sprint}"`);
+        rows = rows.filter((t) => t.sprintId === s.id);
+      }
+
+      const staleDays = Number.isFinite(args.staleDays) ? args.staleDays : 30;
+      const staleBefore = Date.now() - staleDays * 86400000;
+      const label = (t) => `${t.id.slice(0, 8)} ${t.title}`;
+      const open = rows.filter((t) => t.status !== "DONE");
+
+      const issues = {
+        unestimated: open.filter((t) => !points(t)).map(label),
+        oversized: open.filter((t) => points(t) >= 13).map(label),
+        noAcceptance: open.filter((t) => points(t) >= 5 && !(t.acceptance || "").trim()).map(label),
+        blocked: open.filter((t) => t.blocked).map((t) => `${label(t)} — ${t.blocker || "no reason given"}`),
+        unassigned: open.filter((t) => !t.assigneeId).map(label),
+        stale: open
+          .filter((t) => new Date(t.updated || t.created || 0).getTime() < staleBefore)
+          .map(label),
+        // Unfinished work in a closed sprint is invisible: it is not in the
+        // backlog and no board renders a closed sprint
+        strandedInClosedSprint: open
+          .filter((t) => t.sprintId && closedSprintIds.has(t.sprintId))
+          .map(label),
+      };
+
+      const counts = Object.fromEntries(Object.entries(issues).map(([k, v]) => [k, v.length]));
+      return { scope: args.sprint || "all tasks", openTasks: open.length, counts, issues };
     },
   },
 };
