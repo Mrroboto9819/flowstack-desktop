@@ -26,6 +26,40 @@ import {
 
 const store = new SnapshotStore();
 
+// --- access control --------------------------------------------------------
+
+/**
+ * Permissions live in the app's own settings, inside the snapshot this server
+ * reads. The app is the authority: toggle a switch in Settings and the next
+ * tool call here obeys it - no restart, no config file of our own.
+ *
+ * Read fresh every call so a toggle takes effect immediately.
+ *
+ * @param {"read"|"write"|"delete"} level
+ */
+function requireAccess(level) {
+  let mcp;
+  try {
+    mcp = store.read().data?.settings?.mcp;
+  } catch {
+    mcp = undefined;
+  }
+
+  // No settings yet (fresh install, app never opened) - allow reads only, so a
+  // misconfiguration can never mean unrestricted write access
+  const cfg = mcp || { enabled: true, allowWrite: false, allowDelete: false };
+
+  if (cfg.enabled === false) {
+    throw new Error("MCP access is disabled in FlowStack (Settings > MCP access)");
+  }
+  if (level === "write" && !cfg.allowWrite) {
+    throw new Error("MCP write access is off - enable it in FlowStack (Settings > MCP access)");
+  }
+  if (level === "delete" && !cfg.allowDelete) {
+    throw new Error("MCP delete access is off - enable it in FlowStack (Settings > MCP access)");
+  }
+}
+
 // --- helpers ---------------------------------------------------------------
 
 const world = (d) => ({ users: d.users, tags: d.tags, sprints: d.sprints, statuses: d.statuses });
@@ -97,6 +131,7 @@ const TOOLS = {
       },
     },
     run(args) {
+      requireAccess("read");
       const { data } = store.read();
       let rows = data.tasks;
       if (args.status) rows = rows.filter((t) => t.status === args.status);
@@ -126,6 +161,7 @@ const TOOLS = {
     description: "Full record for one task, including description, acceptance criteria and subtasks.",
     schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
     run(args) {
+      requireAccess("read");
       const { data } = store.read();
       const task = data.tasks.find((t) => t.id === args.id);
       if (!task) throw new Error(`no task with id ${args.id}`);
@@ -157,6 +193,7 @@ const TOOLS = {
       required: ["title"],
     },
     run(args) {
+      requireAccess("write");
       const { snapshot } = store.mutate((data) => {
         const check = validateTask(args);
         if (!check.ok) throw new Error(check.error);
@@ -219,6 +256,7 @@ const TOOLS = {
       required: ["id"],
     },
     run(args) {
+      requireAccess("write");
       const { snapshot } = store.mutate((data) => {
         const idx = data.tasks.findIndex((t) => t.id === args.id);
         if (idx === -1) throw new Error(`no task with id ${args.id}`);
@@ -265,6 +303,7 @@ const TOOLS = {
     description: "Delete a task. The previous state is backed up first and can be restored.",
     schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
     run(args) {
+      requireAccess("delete");
       let removed = null;
       const { backup } = store.mutate((data) => {
         const idx = data.tasks.findIndex((t) => t.id === args.id);
@@ -281,6 +320,7 @@ const TOOLS = {
     description: "List sprints with their task counts and progress.",
     schema: { type: "object", properties: {} },
     run() {
+      requireAccess("read");
       const { data } = store.read();
       return data.sprints.map((s) => {
         const tasks = data.tasks.filter((t) => t.sprintId === s.id);
@@ -314,6 +354,7 @@ const TOOLS = {
       required: ["name"],
     },
     run(args) {
+      requireAccess("write");
       const { snapshot } = store.mutate((data) => {
         if (!args.name?.trim()) throw new Error("name is required");
         const now = new Date().toISOString();
@@ -346,6 +387,7 @@ const TOOLS = {
       "Delete a sprint. Its tasks are moved to the backlog rather than left pointing at a sprint that no longer exists.",
     schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
     run(args) {
+      requireAccess("delete");
       let moved = 0;
       const { backup } = store.mutate((data) => {
         const sprint = findSprint(data, args.id);
@@ -370,6 +412,7 @@ const TOOLS = {
       properties: { sprint: { type: "string", description: "Sprint name or id; omit for everything" } },
     },
     run(args) {
+      requireAccess("read");
       const { data } = store.read();
       let rows = data.tasks;
       let label = "all tasks";
@@ -398,6 +441,7 @@ const TOOLS = {
     description: "Team members with their task counts.",
     schema: { type: "object", properties: {} },
     run() {
+      requireAccess("read");
       const { data } = store.read();
       return data.users.map((u) => ({
         id: u.id,
@@ -413,6 +457,7 @@ const TOOLS = {
       "Report data integrity: dangling references, records missing a uuid, duplicate ids.",
     schema: { type: "object", properties: {} },
     run() {
+      requireAccess("read");
       const snap = store.read();
       const d = snap.data;
       const noUuid = [];

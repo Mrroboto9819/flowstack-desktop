@@ -10,6 +10,23 @@ let settings = $state({
   showScrollButtons: true,
   autoFinishSprints: false, // When true, sprints auto-complete when end date passes
   methodology: "agile", // "agile" | "kanban" | "waterfall"
+
+  /**
+   * MCP access control.
+   *
+   * The MCP server is a separate process, so the app cannot stop it running.
+   * What it can do is own the permission: the server reads these flags out of
+   * the same snapshot file on every call and refuses anything not allowed.
+   * The app stays the authority.
+   *
+   * Defaults are deliberately cautious - reading is allowed, changing your data
+   * is opt-in, and deleting is a separate opt-in on top of that.
+   */
+  mcp: {
+    enabled: true,     // false turns every tool off, including reads
+    allowWrite: false, // create and update
+    allowDelete: false, // delete_task / delete_sprint
+  },
 });
 
 function saveSettings() {

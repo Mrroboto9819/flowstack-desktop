@@ -11,18 +11,45 @@
     EyeOff,
     GripVertical,
     Lock,
+    Plug,
+    Copy,
   } from "lucide-svelte";
   import { dndzone } from "svelte-dnd-action";
   import { flip } from "svelte/animate";
-  import { statusStore, tagStore } from "../../lib/stores/index.js";
+  import { statusStore, tagStore, settingsStore, persistenceInfo } from "../../lib/stores/index.js";
+  import { toastStore } from "../../lib/toastStore.svelte.js";
+  import StandardSwitch from "../../lib/StandardSwitch.svelte";
   import StatusModal from "../../lib/components/StatusModal.svelte";
   import TagModal from "../../lib/components/TagModal.svelte";
   import ConfirmModal from "../../lib/components/ConfirmModal.svelte";
-  import StandardSwitch from "../../lib/StandardSwitch.svelte";
   import { _ } from "$lib/i18n";
 
   let statuses = $derived(statusStore.statuses);
   let tags = $derived(tagStore.tags);
+
+  // MCP permissions. The server reads these out of the snapshot on every call,
+  // so a toggle here takes effect on the next tool use - no restart needed.
+  let mcp = $derived(
+    settingsStore.settings.mcp || { enabled: true, allowWrite: false, allowDelete: false }
+  );
+
+  function setMcp(patch) {
+    settingsStore.update({ mcp: { ...mcp, ...patch } });
+  }
+
+  async function copyMcpConfig() {
+    const config = JSON.stringify(
+      { mcpServers: { flowstack: { command: "node", args: ["mcp/server.js"] } } },
+      null,
+      2
+    );
+    try {
+      await navigator.clipboard.writeText(config);
+      toastStore.success("MCP config copied");
+    } catch {
+      toastStore.error("Could not copy to clipboard");
+    }
+  }
   const flipDurationMs = 200;
 
   // Drag and drop state
@@ -191,6 +218,31 @@
         >
           {tags.length}
         </span>
+      </button>
+      <button
+        type="button"
+        class="px-4 py-3 text-sm font-semibold transition-all border-b-2 flex items-center gap-2"
+        class:border-primary={activeTab === "mcp"}
+        class:text-primary={activeTab === "mcp"}
+        class:border-transparent={activeTab !== "mcp"}
+        class:text-muted-foreground={activeTab !== "mcp"}
+        onclick={() => (activeTab = "mcp")}
+      >
+        <Plug size={16} />
+        MCP access
+        {#if !mcp.enabled}
+          <span class="ml-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            off
+          </span>
+        {:else if mcp.allowWrite}
+          <span class="ml-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+            {mcp.allowDelete ? "full" : "write"}
+          </span>
+        {:else}
+          <span class="ml-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            read
+          </span>
+        {/if}
       </button>
     </div>
   </div>
@@ -421,6 +473,106 @@
       <div class="rounded-xl border border-primary/30 bg-primary/5 p-4">
         <p class="text-sm text-foreground">
           <span class="font-semibold">💡 Tip:</span> {$_("settings.tags.tip")}
+        </p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- MCP Access Tab -->
+  {#if activeTab === "mcp"}
+    <div class="space-y-6">
+      <div>
+        <h2 class="text-xl font-bold text-foreground">MCP access</h2>
+        <p class="mt-1 text-sm text-muted-foreground">
+          Let an AI assistant read and change this board through the FlowStack MCP
+          server. The server runs as a separate process and checks these
+          permissions on every request.
+        </p>
+      </div>
+
+      <div class="divide-y divide-border border-y border-border">
+        <div class="flex items-start justify-between gap-6 py-4">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-foreground">Enable MCP access</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              When off, every tool is refused, including reading.
+            </p>
+          </div>
+          <StandardSwitch
+            checked={mcp.enabled}
+            onchange={(e) => setMcp({ enabled: e.currentTarget.checked })}
+          />
+        </div>
+
+        <div class="flex items-start justify-between gap-6 py-4" class:opacity-50={!mcp.enabled}>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-foreground">Allow changes</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              Creating and updating tasks and sprints. Reading works without this.
+            </p>
+          </div>
+          <StandardSwitch
+            checked={mcp.allowWrite}
+            disabled={!mcp.enabled}
+            onchange={(e) => setMcp({ allowWrite: e.currentTarget.checked })}
+          />
+        </div>
+
+        <div class="flex items-start justify-between gap-6 py-4" class:opacity-50={!mcp.enabled || !mcp.allowWrite}>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-foreground">Allow deleting</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              Deleting tasks and sprints. Every delete backs up the previous data first.
+            </p>
+          </div>
+          <StandardSwitch
+            checked={mcp.allowDelete}
+            disabled={!mcp.enabled || !mcp.allowWrite}
+            onchange={(e) => setMcp({ allowDelete: e.currentTarget.checked })}
+          />
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Connecting
+        </h3>
+        <p class="mt-2 text-sm text-muted-foreground">
+          Add this to <code class="rounded bg-muted px-1 py-0.5 text-xs">.mcp.json</code>
+          in your project, then restart your assistant.
+        </p>
+        <pre class="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground"><code>{`{
+  "mcpServers": {
+    "flowstack": {
+      "command": "node",
+      "args": ["mcp/server.js"]
+    }
+  }
+}`}</code></pre>
+        <button type="button" class="btn btn-secondary mt-3" onclick={copyMcpConfig}>
+          <Copy size={14} />
+          Copy config
+        </button>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Storage
+        </h3>
+        <dl class="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+          <div class="flex items-baseline gap-1.5">
+            <dt class="text-muted-foreground">Backend</dt>
+            <dd class="font-semibold text-foreground">{persistenceInfo().backend}</dd>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <dt class="text-muted-foreground">Revision</dt>
+            <dd class="font-semibold text-foreground">{persistenceInfo().revision}</dd>
+          </div>
+        </dl>
+        <p class="mt-2 text-xs text-muted-foreground">
+          The server reads the same file this app writes. If the backend says
+          <code class="rounded bg-muted px-1 py-0.5">localStorage</code>, the data has not
+          reached disk yet and the server cannot see it.
         </p>
       </div>
     </div>
